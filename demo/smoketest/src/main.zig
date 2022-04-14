@@ -15,7 +15,12 @@ pub fn main() anyerror!void {
     var library_path = arg_iter.next() orelse return error.NoLibraryProvided;
     var library_dir = try std.fs.cwd().openDir(library_path, .{ .iterate = true });
     defer library_dir.close();
+
     var library_walker = try library_dir.walk(arena.allocator());
+    var file_count: usize = 0;
+    var file_times = std.ArrayList(u64).init(arena.allocator());
+    defer file_times.deinit();
+
     while (try library_walker.next()) |entry| {
         if (entry.kind != .File) continue;
         if (!std.mem.endsWith(u8, entry.basename, "mp3")) continue;
@@ -28,8 +33,15 @@ pub fn main() anyerror!void {
             .allocator = arena.allocator(),
             .reader = reader,
         };
+        var timer = try std.time.Timer.start();
         while (parser.nextItem() catch continue) |result| {
             out.info("{}", .{result});
         }
+        try file_times.append(timer.read());
+        file_count += 1;
     }
+    var total_time: u64 = 0;
+    for (file_times.items) |time|
+        total_time += time;
+    std.debug.print("parsed {} files in {}", .{ file_count, std.fmt.fmtDuration(total_time) });
 }

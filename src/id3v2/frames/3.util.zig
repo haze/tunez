@@ -11,9 +11,35 @@ pub const TextEncodingDescriptionByte = enum(u8) {
 
 pub const String = struct {
     const Self = @This();
-    const Storage = union(TextEncodingDescriptionByte) {
+    pub const Storage = union(TextEncodingDescriptionByte) {
         ISO_8859_1: []u8,
         UTF_16: []u16,
+
+        pub fn parse(reader: anytype, allocator: std.mem.Allocator, text_encoding: TextEncodingDescriptionByte, byte_count: usize) !Storage {
+            switch (text_encoding) {
+                .ISO_8859_1 => {
+                    const slice = try allocator.alloc(u8, byte_count);
+                    _ = try reader.readAll(slice);
+                    return Storage{ .ISO_8859_1 = slice };
+                },
+                .UTF_16 => {
+                    const slice = try allocator.alloc(u16, byte_count / 2);
+                    var read_index: usize = 0;
+                    while (read_index < slice.len) : (read_index += 1) {
+                        slice[read_index] = try reader.readIntLittle(u16);
+                    }
+                    return Storage{ .UTF_16 = slice };
+                },
+            }
+        }
+
+        pub fn deinit(self: *Storage, allocator: std.mem.Allocator) void {
+            switch (self) {
+                .UTF_16 => |slice| allocator.free(slice),
+                .ISO_8859_1 => |bytes| allocator.free(bytes),
+            }
+            self.* = undefined;
+        }
     };
 
     allocator: std.mem.Allocator,
@@ -47,23 +73,7 @@ pub const String = struct {
         bytes_left: usize,
     }) !Self {
         const text_encoding = try TextEncodingDescriptionByte.parse(reader);
-        const storage = blk: {
-            switch (text_encoding) {
-                .ISO_8859_1 => {
-                    const slice = try payload.allocator.alloc(u8, payload.bytes_left);
-                    _ = try reader.readAll(slice);
-                    break :blk Storage{ .ISO_8859_1 = slice };
-                },
-                .UTF_16 => {
-                    const slice = try payload.allocator.alloc(u16, payload.bytes_left / 2);
-                    var read_index: usize = 0;
-                    while (read_index < slice.len) : (read_index += 1) {
-                        slice[read_index] = try reader.readIntLittle(u16);
-                    }
-                    break :blk Storage{ .UTF_16 = slice };
-                },
-            }
-        };
+        const storage = try Storage.parse(reader, payload.allocator, text_encoding, payload.bytes_left);
 
         return Self{
             .allocator = payload.allocator,
@@ -73,7 +83,7 @@ pub const String = struct {
     }
 
     pub fn deinit(self: *Self) void {
-        self.allocator.free(self.bytes);
+        self.storage.deinit(self.allocator);
         self.* = undefined;
     }
 };
