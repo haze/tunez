@@ -21,6 +21,7 @@ pub fn main() anyerror!void {
         if (!std.mem.endsWith(u8, entry.basename, "mp3")) continue;
         out.info("Reading {s}", .{entry.basename});
         var file = try entry.dir.openFile(entry.basename, .{});
+        defer file.close();
         var reader = std.io.bufferedReader(file.reader()).reader();
 
         var parser = tunez.id3.Parser(@TypeOf(reader)){
