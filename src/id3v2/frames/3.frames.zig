@@ -133,7 +133,9 @@ pub const TXXX = struct {
 
         // first, we must read the bytes into a buffer. we then use this buffer to search for the
         // null byte separating the description and value and reinterpret the slices from there
-        var bytes = try payload.allocator.alloc(u8, payload.frame_size);
+        var bytes = try payload.allocator.alloc(u8, payload.frame_size - 1);
+        defer payload.allocator.free(bytes);
+
         _ = try reader.readAll(bytes);
         if (std.mem.indexOfScalar(u8, bytes, 0x00)) |separation_index| {
             var description_reader = std.io.fixedBufferStream(bytes[0..separation_index]).reader();
@@ -152,8 +154,8 @@ pub const TXXX = struct {
     }
 
     pub fn deinit(self: *TXXX) void {
-        self.allocator.free(self.description);
-        self.allocator.free(self.value);
+        self.description.deinit(self.allocator);
+        self.value.deinit(self.allocator);
         self.* = undefined;
     }
 };

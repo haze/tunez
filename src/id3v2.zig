@@ -42,10 +42,12 @@ pub fn Parser(comptime ReaderType: type) type {
         const State = union(enum) {
             reading_universal_header,
             reading_v3: versions.v3.Parser(ReaderType),
+            reading_v4: versions.v4.Parser(ReaderType),
             finished: void,
         };
         pub const Result = union(enum) {
             v3: versions.v3.Parser(ReaderType).Result,
+            v4: versions.v4.Parser(ReaderType).Result,
 
             pub fn format(
                 self: Result,
@@ -57,12 +59,14 @@ pub fn Parser(comptime ReaderType: type) type {
                 _ = fmt;
                 switch (self) {
                     .v3 => |v3_result| try writer.print("{}", .{v3_result}),
+                    .v4 => |v4_result| try writer.print("{}", .{v4_result}),
                 }
             }
 
             pub fn deinit(self: *Result) void {
                 switch (self.*) {
                     .v3 => |*result| result.deinit(),
+                    .v4 => |*result| result.deinit(),
                 }
             }
         };
@@ -81,6 +85,12 @@ pub fn Parser(comptime ReaderType: type) type {
                         }
                         self.state = .finished;
                     },
+                    .reading_v4 => |*parser| {
+                        while (try parser.nextItem()) |result| {
+                            return Result{ .v4 = result };
+                        }
+                        self.state = .finished;
+                    },
                     .reading_universal_header => {
                         var header_part_buf: [4]u8 = undefined;
                         _ = try self.reader.readAll(&header_part_buf);
@@ -90,6 +100,14 @@ pub fn Parser(comptime ReaderType: type) type {
                                 _ = try self.reader.readByte(); // skip null version byte
                                 log.warn("detected id3v2.3 file, switching parsers...", .{});
                                 self.state = .{ .reading_v3 = .{
+                                    .reader = self.reader,
+                                    .allocator = self.allocator,
+                                } };
+                            },
+                            0x04 => {
+                                _ = try self.reader.readByte(); // skip null version byte
+                                log.warn("detected id3v2.4 file, switching parsers...", .{});
+                                self.state = .{ .reading_v4 = .{
                                     .reader = self.reader,
                                     .allocator = self.allocator,
                                 } };

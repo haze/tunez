@@ -34,7 +34,7 @@ pub const String = struct {
         }
 
         pub fn deinit(self: *Storage, allocator: std.mem.Allocator) void {
-            switch (self) {
+            switch (self.*) {
                 .UTF_16 => |slice| allocator.free(slice),
                 .ISO_8859_1 => |bytes| allocator.free(bytes),
             }

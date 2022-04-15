@@ -11,6 +11,9 @@ pub const Frame = union(enum) {
     TSRC: frames.SimpleStringFrame,
     TIT2: frames.SimpleStringFrame,
     TPUB: frames.SimpleStringFrame,
+    TIT1: frames.SimpleStringFrame,
+    TCON: frames.SimpleStringFrame,
+    TPE2: frames.SimpleStringFrame,
     TALB: frames.SimpleStringFrame,
 
     pub fn format(
@@ -39,7 +42,7 @@ pub const Frame = union(enum) {
             .TXXX => |frame| {
                 try writer.print("{}", .{frame});
             },
-            .TPE1, .TSRC, .TIT2, .TPUB, .TALB => |frame| {
+            .TPE1, .TSRC, .TIT2, .TPUB, .TALB, .TCON, .TIT1, .TPE2 => |frame| {
                 try writer.print("{}", .{frame.value});
             },
         }
