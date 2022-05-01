@@ -126,7 +126,7 @@ pub fn Parser(comptime ReaderType: type) type {
 }
 
 test {
-    const mp3_file = @embedFile("/Users/haze/Downloads/thing.mp3");
+    const mp3_file = @embedFile("/Users/haze/code/tunez/demo/smoketest/test/bad.mp3");
     // const mp3_file = @embedFile("/Users/haze/03. #TakinShitDown.mp3");
     // const mp3_file = @embedFile("/Users/haze/Downloads/csrss36f.mp3");
     var reader = std.io.fixedBufferStream(mp3_file).reader();

@@ -61,6 +61,22 @@ pub fn main() anyerror!void {
 
     const stdout = std.io.getStdOut().writer();
     try stdout.print("id3v2.3 unknown frames: {}\n", .{id3_v3_unknown_frames_set.count()});
+    var id3_v3_unknown_frame_iter = id3_v3_unknown_frames_set.keyIterator();
+    if (id3_v3_unknown_frames_set.count() > 0) {
+        while (id3_v3_unknown_frame_iter.next()) |frame| {
+            defer arena.allocator().free(frame.*);
+            try stdout.print("{s}, ", .{frame.*});
+        }
+        try stdout.writeByte('\n');
+    }
     try stdout.print("id3v2.4 unknown frames: {}\n", .{id3_v4_unknown_frames_set.count()});
+    var id3_v4_unknown_frame_iter = id3_v4_unknown_frames_set.keyIterator();
+    if (id3_v4_unknown_frames_set.count() > 0) {
+        while (id3_v4_unknown_frame_iter.next()) |frame| {
+            defer arena.allocator().free(frame.*);
+            try stdout.print("{s}, ", .{frame.*});
+        }
+        try stdout.writeByte('\n');
+    }
     try stdout.print("parsed {} files in {}\n", .{ file_count, std.fmt.fmtDuration(total_time) });
 }
