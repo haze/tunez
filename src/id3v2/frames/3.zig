@@ -15,6 +15,8 @@ pub const Frame = union(enum) {
     TCON: frames.SimpleStringFrame,
     TPE2: frames.SimpleStringFrame,
     TALB: frames.SimpleStringFrame,
+    TLEN: frames.SimpleStringFrame,
+    TENC: frames.SimpleStringFrame,
 
     pub fn format(
         self: Frame,
@@ -42,7 +44,7 @@ pub const Frame = union(enum) {
             .TXXX => |frame| {
                 try writer.print("{}", .{frame});
             },
-            .TPE1, .TSRC, .TIT2, .TPUB, .TALB, .TCON, .TIT1, .TPE2 => |frame| {
+            .TPE1, .TSRC, .TIT2, .TPUB, .TALB, .TCON, .TIT1, .TPE2, .TENC, .TLEN => |frame| {
                 try writer.print("{}", .{frame.value});
             },
         }
@@ -161,8 +163,8 @@ pub fn Parser(comptime ReaderType: type) type {
                         const source_tag_size = try self.reader.readIntBig(u32);
 
                         var tag_size: u32 = 0;
-                        var mask: u32 = 0x7F000000;
-                        while (mask > 0) : ({
+                        comptime var mask: u32 = 0x7F000000;
+                        inline while (mask > 0) : ({
                             tag_size >>= 1;
                             tag_size |= (source_tag_size & mask);
                             mask >>= 8;

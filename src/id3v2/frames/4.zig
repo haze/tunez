@@ -102,8 +102,8 @@ pub fn Parser(comptime ReaderType: type) type {
                             const source_frame_size = try self.reader.readIntBig(u32);
 
                             var frame_size: u32 = 0;
-                            var mask: u32 = 0x7F000000;
-                            while (mask > 0) : ({
+                            comptime var mask: u32 = 0x7F000000;
+                            inline while (mask > 0) : ({
                                 frame_size >>= 1;
                                 frame_size |= (source_frame_size & mask);
                                 mask >>= 8;
@@ -134,8 +134,8 @@ pub fn Parser(comptime ReaderType: type) type {
                         const source_tag_size = try self.reader.readIntBig(u32);
 
                         var tag_size: u32 = 0;
-                        var mask: u32 = 0x7F000000;
-                        while (mask > 0) : ({
+                        comptime var mask: u32 = 0x7F000000;
+                        inline while (mask > 0) : ({
                             tag_size >>= 1;
                             tag_size |= (source_tag_size & mask);
                             mask >>= 8;
