@@ -91,6 +91,7 @@ pub fn Parser(comptime ReaderType: type) type {
         pub const Result = union(enum) {
             header: Header,
             frame: Frame,
+            unknown_frame: []const u8,
 
             pub fn format(
                 self: Result,
@@ -103,6 +104,7 @@ pub fn Parser(comptime ReaderType: type) type {
                 return switch (self) {
                     .header => |header| writer.print("Header {}", .{header}),
                     .frame => |frame| writer.print("Frame {}", .{frame}),
+                    .unknown_frame => |frame_id| writer.print("Unkowwn Frame {s}", .{frame_id}),
                 };
             }
 
@@ -156,6 +158,7 @@ pub fn Parser(comptime ReaderType: type) type {
                             const bytes_consumed = frame_size + 10;
                             payload.bytes_left -= bytes_consumed;
                             log.warn("(consumed={}) left=({}) read {s} (size={} ({}), flags={})", .{ bytes_consumed, payload.bytes_left, frame_id, frame_size, frame_size + frame_id.len, flags });
+                            return Result{ .unknown_frame = &frame_id };
                         }
                     },
                     .reading_header => {

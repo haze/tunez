@@ -21,6 +21,11 @@ pub fn main() anyerror!void {
     var file_times = std.ArrayList(u64).init(arena.allocator());
     defer file_times.deinit();
 
+    var id3_v3_unknown_frames_set = std.StringHashMap(void).init(arena.allocator());
+    defer id3_v3_unknown_frames_set.deinit();
+    var id3_v4_unknown_frames_set = std.StringHashMap(void).init(arena.allocator());
+    defer id3_v4_unknown_frames_set.deinit();
+
     while (try library_walker.next()) |entry| {
         if (entry.kind != .File) continue;
         if (!std.mem.endsWith(u8, entry.basename, "mp3")) continue;
@@ -35,6 +40,16 @@ pub fn main() anyerror!void {
         };
         var timer = try std.time.Timer.start();
         while (parser.nextItem() catch continue) |result| {
+            switch (result) {
+                .v3 => |v3_result| switch (v3_result) {
+                    .unknown_frame => |frame_id| try id3_v3_unknown_frames_set.put(try arena.allocator().dupe(u8, frame_id), {}),
+                    else => {},
+                },
+                .v4 => |v4_result| switch (v4_result) {
+                    .unknown_frame => |frame_id| try id3_v4_unknown_frames_set.put(try arena.allocator().dupe(u8, frame_id), {}),
+                    else => {},
+                },
+            }
             out.info("{}", .{result});
         }
         try file_times.append(timer.read());
@@ -43,5 +58,9 @@ pub fn main() anyerror!void {
     var total_time: u64 = 0;
     for (file_times.items) |time|
         total_time += time;
-    std.debug.print("parsed {} files in {}", .{ file_count, std.fmt.fmtDuration(total_time) });
+
+    const stdout = std.io.getStdOut().writer();
+    try stdout.print("id3v2.3 unknown frames: {}\n", .{id3_v3_unknown_frames_set.count()});
+    try stdout.print("id3v2.4 unknown frames: {}\n", .{id3_v4_unknown_frames_set.count()});
+    try stdout.print("parsed {} files in {}\n", .{ file_count, std.fmt.fmtDuration(total_time) });
 }
