@@ -7,16 +7,19 @@ pub const Frame = union(enum) {
     TRCK: frames.TRCK,
     TPOS: frames.TPOS,
     TXXX: frames.TXXX,
-    TPE1: frames.SimpleStringFrame,
-    TSRC: frames.SimpleStringFrame,
-    TIT2: frames.SimpleStringFrame,
-    TPUB: frames.SimpleStringFrame,
-    TIT1: frames.SimpleStringFrame,
-    TCON: frames.SimpleStringFrame,
-    TPE2: frames.SimpleStringFrame,
-    TALB: frames.SimpleStringFrame,
-    TLEN: frames.SimpleStringFrame,
-    TENC: frames.SimpleStringFrame,
+    APIC: frames.APIC,
+    TPE1: frames.SimpleStringFrame(.{}),
+    TSRC: frames.SimpleStringFrame(.{}),
+    TIT2: frames.SimpleStringFrame(.{}),
+    TPUB: frames.SimpleStringFrame(.{}),
+    TIT1: frames.SimpleStringFrame(.{}),
+    TCON: frames.SimpleStringFrame(.{}),
+    TPE2: frames.SimpleStringFrame(.{}),
+    TALB: frames.SimpleStringFrame(.{}),
+    TLEN: frames.SimpleStringFrame(.{}),
+    TENC: frames.SimpleStringFrame(.{}),
+    USLT: frames.SimpleStringFrame(.{ .expect_language = true }),
+    COMM: frames.SimpleStringFrame(.{ .expect_language = true }),
 
     pub fn format(
         self: Frame,
@@ -41,8 +44,14 @@ pub const Frame = union(enum) {
                     try writer.print("/{}", .{total_parts});
                 }
             },
+            .APIC => |frame| {
+                try writer.print("{s}", .{frame.mime_type});
+            },
             .TXXX => |frame| {
                 try writer.print("{}", .{frame});
+            },
+            .USLT, .COMM => |frame| {
+                try writer.print("{s}: <content...>", .{&frame.value.language});
             },
             .TPE1, .TSRC, .TIT2, .TPUB, .TALB, .TCON, .TIT1, .TPE2, .TENC, .TLEN => |frame| {
                 try writer.print("{}", .{frame.value});
@@ -91,7 +100,10 @@ pub fn Parser(comptime ReaderType: type) type {
         pub const Result = union(enum) {
             header: Header,
             frame: Frame,
-            unknown_frame: []const u8,
+            unknown_frame: struct {
+                frame_id: []const u8,
+                allocator: std.mem.Allocator,
+            },
 
             pub fn format(
                 self: Result,
@@ -104,7 +116,7 @@ pub fn Parser(comptime ReaderType: type) type {
                 return switch (self) {
                     .header => |header| writer.print("Header {}", .{header}),
                     .frame => |frame| writer.print("Frame {}", .{frame}),
-                    .unknown_frame => |frame_id| writer.print("Unkowwn Frame {s}", .{frame_id}),
+                    .unknown_frame => |data| writer.print("Unkowwn Frame {s}", .{data.frame_id}),
                 };
             }
 
@@ -115,6 +127,7 @@ pub fn Parser(comptime ReaderType: type) type {
                         .TXXX => |*frame| frame.deinit(),
                         else => {},
                     },
+                    .unknown_frame => |data| data.allocator.free(data.frame_id),
                     else => {},
                 }
             }
@@ -130,7 +143,7 @@ pub fn Parser(comptime ReaderType: type) type {
                     .finished => unreachable,
                     .reading_frame_or_padding => |*payload| {
                         var first_byte = try self.reader.readByte();
-                        if (first_byte == 0x00) {
+                        if (first_byte == 0x00 or payload.bytes_left == 0) {
                             self.state = .finished;
                             // try self.reader.skipBytes(payload.bytes_left - 1, .{});
                             // var mp3_magic: [4]u8 = undefined;
@@ -146,19 +159,30 @@ pub fn Parser(comptime ReaderType: type) type {
 
                             inline for (@typeInfo(Frame).Union.fields) |field| {
                                 if (std.mem.eql(u8, field.name, &frame_id)) {
-                                    return Result{ .frame = @unionInit(Frame, field.name, try field.field_type.parse(self.reader, .{
-                                        .allocator = self.allocator,
-                                        .frame_size = frame_size,
-                                    })) };
+                                    payload.bytes_left -= (frame_size + 10);
+                                    return Result{
+                                        .frame = @unionInit(Frame, field.name, try field.field_type.parse(
+                                            self.reader,
+                                            .{
+                                                .allocator = self.allocator,
+                                                .frame_size = frame_size,
+                                            },
+                                        )),
+                                    };
                                 }
                             }
-                            log.warn("unknown frame id: {s}", .{frame_id});
+                            log.warn("(left={}) unknown frame id: {s}", .{ payload.bytes_left, frame_id });
 
                             try self.reader.skipBytes(frame_size, .{});
                             const bytes_consumed = frame_size + 10;
                             payload.bytes_left -= bytes_consumed;
                             log.warn("(consumed={}) left=({}) read {s} (size={} ({}), flags={})", .{ bytes_consumed, payload.bytes_left, frame_id, frame_size, frame_size + frame_id.len, flags });
-                            return Result{ .unknown_frame = &frame_id };
+                            return Result{
+                                .unknown_frame = .{
+                                    .frame_id = try self.allocator.dupe(u8, &frame_id),
+                                    .allocator = self.allocator,
+                                },
+                            };
                         }
                     },
                     .reading_header => {

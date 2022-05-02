@@ -39,19 +39,25 @@ pub fn main() anyerror!void {
             .reader = reader,
         };
         var timer = try std.time.Timer.start();
-        while (parser.nextItem() catch continue) |result| {
-            switch (result) {
-                .v3 => |v3_result| switch (v3_result) {
-                    .unknown_frame => |frame_id| try id3_v3_unknown_frames_set.put(try arena.allocator().dupe(u8, frame_id), {}),
+        while (parser.nextItem() catch |err| {
+            out.err("error during {s}: {}", .{ entry.basename, err });
+            continue;
+        }) |*result| {
+            defer result.deinit();
+
+            switch (result.*) {
+                .v3 => |*v3_result| switch (v3_result.*) {
+                    .unknown_frame => |*data| try id3_v3_unknown_frames_set.put(try arena.allocator().dupe(u8, data.frame_id), {}),
                     else => {},
                 },
-                .v4 => |v4_result| switch (v4_result) {
-                    .unknown_frame => |frame_id| try id3_v4_unknown_frames_set.put(try arena.allocator().dupe(u8, frame_id), {}),
+                .v4 => |*v4_result| switch (v4_result.*) {
+                    .unknown_frame => |*data| try id3_v4_unknown_frames_set.put(try arena.allocator().dupe(u8, data.frame_id), {}),
                     else => {},
                 },
             }
             out.info("{}", .{result});
         }
+
         try file_times.append(timer.read());
         file_count += 1;
     }

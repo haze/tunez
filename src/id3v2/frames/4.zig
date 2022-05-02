@@ -53,7 +53,10 @@ pub fn Parser(comptime ReaderType: type) type {
         pub const Result = union(enum) {
             header: Header,
             frame: Frame,
-            unknown_frame: []const u8,
+            unknown_frame: struct {
+                frame_id: []const u8,
+                allocator: std.mem.Allocator,
+            },
 
             pub fn format(
                 self: Result,
@@ -66,7 +69,7 @@ pub fn Parser(comptime ReaderType: type) type {
                 return switch (self) {
                     .header => |header| writer.print("Header {}", .{header}),
                     .frame => |frame| writer.print("Frame {}", .{frame}),
-                    .unknown_frame => |frame_id| writer.print("Unkowwn Frame {s}", .{frame_id}),
+                    .unknown_frame => |data| writer.print("Unkowwn Frame {s}", .{data.frame_id}),
                 };
             }
 
@@ -75,6 +78,7 @@ pub fn Parser(comptime ReaderType: type) type {
                     .frame => |*result_frame| switch (result_frame.*) {
                         else => {},
                     },
+                    .unknown_frame => |data| data.allocator.free(data.frame_id),
                     else => {},
                 }
             }
@@ -90,7 +94,7 @@ pub fn Parser(comptime ReaderType: type) type {
                     .finished => unreachable,
                     .reading_frame_or_padding => |*payload| {
                         var first_byte = try self.reader.readByte();
-                        if (first_byte == 0x00) {
+                        if (first_byte == 0x00 or payload.bytes_left == 0) {
                             self.state = .finished;
                             // try self.reader.skipBytes(payload.bytes_left - 1, .{});
                             // var mp3_magic: [4]u8 = undefined;
@@ -111,15 +115,20 @@ pub fn Parser(comptime ReaderType: type) type {
                                 mask >>= 8;
                             }) {}
 
-                            log.info("frame_size={}", .{frame_size});
                             const flags = try self.reader.readIntBig(u16);
 
                             inline for (@typeInfo(Frame).Union.fields) |field| {
                                 if (std.mem.eql(u8, field.name, &frame_id)) {
-                                    return Result{ .frame = @unionInit(Frame, field.name, try field.field_type.parse(self.reader, .{
-                                        .allocator = self.allocator,
-                                        .frame_size = frame_size,
-                                    })) };
+                                    payload.bytes_left -= (frame_size + 10);
+                                    return Result{
+                                        .frame = @unionInit(Frame, field.name, try field.field_type.parse(
+                                            self.reader,
+                                            .{
+                                                .allocator = self.allocator,
+                                                .frame_size = frame_size,
+                                            },
+                                        )),
+                                    };
                                 }
                             }
                             log.warn("unknown frame id: {s}", .{frame_id});
@@ -129,7 +138,12 @@ pub fn Parser(comptime ReaderType: type) type {
                             log.warn("left={}, minus={}", .{ payload.bytes_left, bytes_consumed });
                             payload.bytes_left -= bytes_consumed;
                             log.warn("(consumed={}) left=({}) read {s} (size={} ({}), flags={})", .{ bytes_consumed, payload.bytes_left, frame_id, frame_size, frame_size + frame_id.len, flags });
-                            return Result{ .unknown_frame = &frame_id };
+                            return Result{
+                                .unknown_frame = .{
+                                    .frame_id = try self.allocator.dupe(u8, &frame_id),
+                                    .allocator = self.allocator,
+                                },
+                            };
                         }
                     },
                     .reading_header => {

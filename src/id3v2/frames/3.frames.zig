@@ -18,7 +18,18 @@ pub const TYER = struct {
                 _ = try reader.readAll(&year);
                 return TYER{ .year = try std.fmt.parseInt(u16, &year, 10) };
             },
-            else => return error.NotSupported,
+            .UTF_16 => {
+                const byte_order = try util.Unicode16ByteOrder.parse(reader);
+                if (byte_order == .Big) return error.Utf16BeNotSupported;
+                var utf8_year: [12]u8 = undefined;
+                var utf16_year: [4]u16 = undefined;
+                utf16_year[0] = try reader.readIntLittle(u16);
+                utf16_year[1] = try reader.readIntLittle(u16);
+                utf16_year[2] = try reader.readIntLittle(u16);
+                utf16_year[3] = try reader.readIntLittle(u16);
+                var utf8_end = try std.unicode.utf16leToUtf8(&utf8_year, &utf16_year);
+                return TYER{ .year = try std.fmt.parseInt(u16, utf8_year[0..utf8_end], 10) };
+            },
         }
     }
 };
@@ -89,11 +100,12 @@ pub const TPOS = struct {
 };
 
 pub const TXXX = struct {
+    const String = util.String(.{});
     allocator: std.mem.Allocator,
 
     encoding: util.TextEncodingDescriptionByte,
-    description: util.String.Storage,
-    value: util.String.Storage,
+    description: String.Storage,
+    value: String.Storage,
 
     pub fn format(
         self: TXXX,
@@ -139,10 +151,10 @@ pub const TXXX = struct {
         _ = try reader.readAll(bytes);
         if (std.mem.indexOfScalar(u8, bytes, 0x00)) |separation_index| {
             var description_reader = std.io.fixedBufferStream(bytes[0..separation_index]).reader();
-            var description = try util.String.Storage.parse(description_reader, payload.allocator, text_encoding_description_byte, separation_index);
+            var description = try String.Storage.parse(description_reader, payload.allocator, text_encoding_description_byte, separation_index);
 
             var value_reader = std.io.fixedBufferStream(bytes[separation_index + 1 ..]).reader();
-            var value = try util.String.Storage.parse(value_reader, payload.allocator, text_encoding_description_byte, separation_index);
+            var value = try String.Storage.parse(value_reader, payload.allocator, text_encoding_description_byte, separation_index);
 
             return TXXX{
                 .encoding = text_encoding_description_byte,
@@ -160,23 +172,70 @@ pub const TXXX = struct {
     }
 };
 
-/// helper frames
-pub const SimpleStringFrame = struct {
-    const Self = @This();
+pub const APIC = struct {
+    allocator: std.mem.Allocator,
+    encoding: util.TextEncodingDescriptionByte,
+    mime_type: []const u8,
+    description: []const u8,
+    picture_data: []const u8,
+    picture_type: u8,
 
-    value: util.String,
+    pub fn parse(reader: anytype, payload: Payload) !APIC {
+        const text_encoding_description_byte = try util.TextEncodingDescriptionByte.parse(reader);
+        const mime_type = (try reader.readUntilDelimiterOrEofAlloc(payload.allocator, 0, 256)) orelse return error.InvalidAPIC;
+        const picture_type = try reader.readByte();
+        const description = (try reader.readUntilDelimiterOrEofAlloc(payload.allocator, 0, 256)) orelse return error.InvalidAPIC;
+        const picture_data = try payload.allocator.alloc(u8, payload.frame_size);
+        _ = try reader.readAll(picture_data);
 
-    pub fn parse(reader: anytype, payload: Payload) !Self {
-        return Self{
-            .value = try util.String.parse(reader, .{
-                .allocator = payload.allocator,
-                .bytes_left = payload.frame_size - 1,
-            }),
+        var temp_file = try std.fs.cwd().createFile("image.png", .{});
+        defer temp_file.close();
+        var writer = temp_file.writer();
+        _ = try writer.writeAll(picture_data);
+
+        return APIC{
+            .encoding = text_encoding_description_byte,
+            .allocator = payload.allocator,
+            .mime_type = mime_type,
+            .picture_type = picture_type,
+            .description = description,
+            .picture_data = picture_data,
         };
     }
 
-    pub fn deinit(self: *Self) void {
-        self.value.deinit();
+    pub fn deinit(self: *APIC) void {
+        self.allocator.free(self.mime_type);
+        self.allocator.free(self.description);
+        self.allocator.free(self.picture_data);
         self.* = undefined;
     }
 };
+
+/// helper frames
+pub const SimpleStringFrameOptions = struct {
+    expect_language: bool = false,
+};
+pub fn SimpleStringFrame(options: SimpleStringFrameOptions) type {
+    return struct {
+        const Self = @This();
+        const String = util.String(.{
+            .expect_language = options.expect_language,
+        });
+
+        value: String,
+
+        pub fn parse(reader: anytype, payload: Payload) !Self {
+            return Self{
+                .value = try String.parse(reader, .{
+                    .allocator = payload.allocator,
+                    .bytes_left = payload.frame_size - 1,
+                }),
+            };
+        }
+
+        pub fn deinit(self: *Self) void {
+            self.value.deinit();
+            self.* = undefined;
+        }
+    };
+}
