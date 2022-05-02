@@ -126,6 +126,7 @@ pub fn Parser(comptime ReaderType: type) type {
                         .TPE1, .TSRC, .TIT2, .TPUB, .TALB => |*frame| frame.deinit(),
                         .TXXX => |*frame| frame.deinit(),
                         .APIC => |*frame| frame.deinit(),
+                        .COMM, .USLT => |*frame| frame.deinit(),
                         else => {},
                     },
                     .unknown_frame => |data| data.allocator.free(data.frame_id),

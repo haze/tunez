@@ -181,21 +181,35 @@ pub const APIC = struct {
     picture_type: u8,
 
     pub fn parse(reader: anytype, payload: Payload) !APIC {
+        var bytes_read: usize = 0;
+
         const text_encoding_description_byte = try util.TextEncodingDescriptionByte.parse(reader);
+        bytes_read += 1;
+
         const mime_type = (try reader.readUntilDelimiterOrEofAlloc(payload.allocator, 0, 256)) orelse return error.InvalidAPIC;
+        bytes_read += mime_type.len + 1;
+
         const picture_type = try reader.readByte();
+        bytes_read += 1;
+
         const description = blk: {
             switch (text_encoding_description_byte) {
-                .ISO_8859_1 => break :blk (try reader.readUntilDelimiterOrEofAlloc(payload.allocator, 0, 256)) orelse return error.InvalidAPIC,
+                .ISO_8859_1 => {
+                    const data = (try reader.readUntilDelimiterOrEofAlloc(payload.allocator, 0, 256)) orelse return error.InvalidAPIC;
+                    bytes_read += data.len;
+                    break :blk data;
+                },
                 .UTF_16 => {
                     var codepoint_storage = std.ArrayList(u16).init(payload.allocator);
                     defer codepoint_storage.deinit();
 
                     var working_codepoint = try reader.readIntLittle(u16);
+                    bytes_read += 2;
 
                     while (working_codepoint != 0x00) {
                         try codepoint_storage.append(working_codepoint);
                         working_codepoint = try reader.readIntLittle(u16);
+                        bytes_read += 2;
                     }
 
                     const utf8_desc = try std.unicode.utf16leToUtf8Alloc(payload.allocator, codepoint_storage.items);
@@ -203,7 +217,8 @@ pub const APIC = struct {
                 },
             }
         };
-        const picture_data = try payload.allocator.alloc(u8, payload.frame_size);
+
+        const picture_data = try payload.allocator.alloc(u8, payload.frame_size - bytes_read);
         _ = try reader.readAll(picture_data);
 
         var temp_file = try std.fs.cwd().createFile("image.png", .{});
