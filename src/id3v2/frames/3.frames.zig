@@ -184,7 +184,25 @@ pub const APIC = struct {
         const text_encoding_description_byte = try util.TextEncodingDescriptionByte.parse(reader);
         const mime_type = (try reader.readUntilDelimiterOrEofAlloc(payload.allocator, 0, 256)) orelse return error.InvalidAPIC;
         const picture_type = try reader.readByte();
-        const description = (try reader.readUntilDelimiterOrEofAlloc(payload.allocator, 0, 256)) orelse return error.InvalidAPIC;
+        const description = blk: {
+            switch (text_encoding_description_byte) {
+                .ISO_8859_1 => break :blk (try reader.readUntilDelimiterOrEofAlloc(payload.allocator, 0, 256)) orelse return error.InvalidAPIC,
+                .UTF_16 => {
+                    var codepoint_storage = std.ArrayList(u16).init(payload.allocator);
+                    defer codepoint_storage.deinit();
+
+                    var working_codepoint = try reader.readIntLittle(u16);
+
+                    while (working_codepoint != 0x00) {
+                        try codepoint_storage.append(working_codepoint);
+                        working_codepoint = try reader.readIntLittle(u16);
+                    }
+
+                    const utf8_desc = try std.unicode.utf16leToUtf8Alloc(payload.allocator, codepoint_storage.items);
+                    break :blk utf8_desc;
+                },
+            }
+        };
         const picture_data = try payload.allocator.alloc(u8, payload.frame_size);
         _ = try reader.readAll(picture_data);
 
