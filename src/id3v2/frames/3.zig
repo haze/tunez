@@ -8,6 +8,7 @@ pub const Frame = union(enum) {
     TPOS: frames.TPOS,
     TXXX: frames.TXXX,
     APIC: frames.APIC,
+    PRIV: frames.PRIV,
     TPE1: frames.SimpleStringFrame(.{}),
     TSRC: frames.SimpleStringFrame(.{}),
     TIT2: frames.SimpleStringFrame(.{}),
@@ -48,6 +49,9 @@ pub const Frame = union(enum) {
                 try writer.print("{s}", .{frame.mime_type});
             },
             .TXXX => |frame| {
+                try writer.print("{}", .{frame});
+            },
+            .PRIV => |frame| {
                 try writer.print("{}", .{frame});
             },
             .USLT, .COMM => |frame| {
@@ -123,7 +127,8 @@ pub fn Parser(comptime ReaderType: type) type {
             pub fn deinit(self: *Result) void {
                 switch (self.*) {
                     .frame => |*result_frame| switch (result_frame.*) {
-                        .TPE1, .TSRC, .TIT2, .TPUB, .TALB => |*frame| frame.deinit(),
+                        .TPE1, .TSRC, .TIT2, .TPUB, .TALB, .TCON, .TPE2 => |*frame| frame.deinit(),
+                        .PRIV => |*frame| frame.deinit(),
                         .TXXX => |*frame| frame.deinit(),
                         .APIC => |*frame| frame.deinit(),
                         .COMM, .USLT => |*frame| frame.deinit(),

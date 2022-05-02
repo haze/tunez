@@ -172,6 +172,42 @@ pub const TXXX = struct {
     }
 };
 
+pub const PRIV = struct {
+    allocator: std.mem.Allocator,
+    owner_identifier: []const u8,
+    private_data: []const u8,
+
+    pub fn format(
+        self: PRIV,
+        comptime fmt: []const u8,
+        options: std.fmt.FormatOptions,
+        writer: anytype,
+    ) !void {
+        _ = options;
+        _ = fmt;
+        try writer.print("owner_id='{s}', private_data=<{} bytes>", .{ self.owner_identifier, self.private_data.len });
+    }
+
+    pub fn parse(reader: anytype, payload: Payload) !PRIV {
+        const owner_identifier = (try reader.readUntilDelimiterOrEofAlloc(payload.allocator, 0, 256)) orelse return error.InvalidPRIV;
+        const private_data = try payload.allocator.alloc(u8, payload.frame_size - owner_identifier.len - 1);
+
+        _ = try reader.readAll(private_data);
+
+        return PRIV{
+            .allocator = payload.allocator,
+            .owner_identifier = owner_identifier,
+            .private_data = private_data,
+        };
+    }
+
+    pub fn deinit(self: *PRIV) void {
+        self.allocator.free(self.owner_identifier);
+        self.allocator.free(self.private_data);
+        self.* = undefined;
+    }
+};
+
 pub const APIC = struct {
     allocator: std.mem.Allocator,
     encoding: util.TextEncodingDescriptionByte,
@@ -180,23 +216,20 @@ pub const APIC = struct {
     picture_data: []const u8,
     picture_type: u8,
 
-    pub fn parse(reader: anytype, payload: Payload) !APIC {
-        var bytes_read: usize = 0;
+    pub fn parse(input_reader: anytype, payload: Payload) !APIC {
+        var counting_reader = std.io.countingReader(input_reader);
+        var reader = counting_reader.reader();
 
         const text_encoding_description_byte = try util.TextEncodingDescriptionByte.parse(reader);
-        bytes_read += 1;
 
         const mime_type = (try reader.readUntilDelimiterOrEofAlloc(payload.allocator, 0, 256)) orelse return error.InvalidAPIC;
-        bytes_read += mime_type.len + 1;
 
         const picture_type = try reader.readByte();
-        bytes_read += 1;
 
         const description = blk: {
             switch (text_encoding_description_byte) {
                 .ISO_8859_1 => {
                     const data = (try reader.readUntilDelimiterOrEofAlloc(payload.allocator, 0, 256)) orelse return error.InvalidAPIC;
-                    bytes_read += data.len;
                     break :blk data;
                 },
                 .UTF_16 => {
@@ -204,12 +237,10 @@ pub const APIC = struct {
                     defer codepoint_storage.deinit();
 
                     var working_codepoint = try reader.readIntLittle(u16);
-                    bytes_read += 2;
 
                     while (working_codepoint != 0x00) {
                         try codepoint_storage.append(working_codepoint);
                         working_codepoint = try reader.readIntLittle(u16);
-                        bytes_read += 2;
                     }
 
                     const utf8_desc = try std.unicode.utf16leToUtf8Alloc(payload.allocator, codepoint_storage.items);
@@ -218,7 +249,7 @@ pub const APIC = struct {
             }
         };
 
-        const picture_data = try payload.allocator.alloc(u8, payload.frame_size - bytes_read);
+        const picture_data = try payload.allocator.alloc(u8, payload.frame_size - counting_reader.bytes_read);
         _ = try reader.readAll(picture_data);
 
         var temp_file = try std.fs.cwd().createFile("image.png", .{});
