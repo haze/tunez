@@ -113,7 +113,7 @@ pub fn Parser(comptime ReaderType: type) type {
                                 } };
                             },
                             else => {
-                                log.warn("encountered unsupported id3 version: {}", .{header_part_buf[3]});
+                                log.err("encountered unsupported id3 version: {}", .{header_part_buf[3]});
                                 return error.UnsupportedID3Version;
                             },
                         }
@@ -127,7 +127,7 @@ pub fn Parser(comptime ReaderType: type) type {
 
 test {
     // const mp3_file = @embedFile("/Users/haze/code/tunez/demo/smoketest/test/omg.mp3");
-    const mp3_file = @embedFile("/Users/haze/Downloads/01_-_Gesaffelstein_-_Out_Of_Line.mp3");
+    const mp3_file = @embedFile("/Users/haze/Music/Swinsian/Auto/LQ/Queens of the Stone age - Songs for the Deaf demos/09 - Song for the Deaf (Instrumental).mp3");
     // const mp3_file = @embedFile("/Users/haze/03. #TakinShitDown.mp3");
     // const mp3_file = @embedFile("/Users/haze/Downloads/csrss36f.mp3");
     var reader = std.io.fixedBufferStream(mp3_file).reader();

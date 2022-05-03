@@ -7,103 +7,12 @@ pub const Payload = struct {
     frame_size: usize,
 };
 
-pub const TYER = struct {
-    year: u16,
-
-    pub fn parse(reader: anytype, _: Payload) !TYER {
-        const text_encoding_description_byte = try util.TextEncodingDescriptionByte.parse(reader);
-        switch (text_encoding_description_byte) {
-            .ISO_8859_1 => {
-                var year: [4]u8 = undefined;
-                _ = try reader.readAll(&year);
-                return TYER{ .year = try std.fmt.parseInt(u16, &year, 10) };
-            },
-            .UTF_16 => {
-                const byte_order = try util.Unicode16ByteOrder.parse(reader);
-                if (byte_order == .Big) return error.Utf16BeNotSupported;
-                var utf8_year: [12]u8 = undefined;
-                var utf16_year: [4]u16 = undefined;
-                utf16_year[0] = try reader.readIntLittle(u16);
-                utf16_year[1] = try reader.readIntLittle(u16);
-                utf16_year[2] = try reader.readIntLittle(u16);
-                utf16_year[3] = try reader.readIntLittle(u16);
-                var utf8_end = try std.unicode.utf16leToUtf8(&utf8_year, &utf16_year);
-                return TYER{ .year = try std.fmt.parseInt(u16, utf8_year[0..utf8_end], 10) };
-            },
-        }
-    }
-};
-
-// TODO(haze): maybe use a stack based fallback allocator if some fields can get really long?
-pub const TRCK = struct {
-    track_index: u16,
-    maybe_total_tracks: ?u16 = null,
-
-    pub fn parse(reader: anytype, payload: Payload) !TRCK {
-        const text_encoding_description_byte = try util.TextEncodingDescriptionByte.parse(reader);
-        switch (text_encoding_description_byte) {
-            .ISO_8859_1 => {
-                var buf: [64]u8 = undefined;
-                if (payload.frame_size > buf.len) {
-                    log.warn("frame_size is bigger than stack buffer ({})", .{payload.frame_size});
-                }
-                const slice = buf[0 .. payload.frame_size - 1];
-                _ = try reader.readAll(slice);
-                if (std.mem.indexOfScalar(u8, slice, '/')) |separator_index| {
-                    return TRCK{
-                        .track_index = try std.fmt.parseInt(u16, slice[0..separator_index], 10),
-                        .maybe_total_tracks = try std.fmt.parseInt(u16, slice[separator_index + 1 ..], 10),
-                    };
-                } else {
-                    return TRCK{
-                        .track_index = try std.fmt.parseInt(u16, slice, 10),
-                    };
-                }
-                log.warn("{s}", .{slice});
-            },
-            else => return error.NotSupported,
-        }
-        return error.TODO;
-    }
-};
-
-pub const TPOS = struct {
-    part_index: u16,
-    maybe_total_parts_in_set: ?u16 = null,
-
-    pub fn parse(reader: anytype, payload: Payload) !TPOS {
-        const text_encoding_description_byte = try util.TextEncodingDescriptionByte.parse(reader);
-        switch (text_encoding_description_byte) {
-            .ISO_8859_1 => {
-                var buf: [64]u8 = undefined;
-                if (payload.frame_size > buf.len) {
-                    log.warn("frame_size is bigger than stack buffer ({})", .{payload.frame_size});
-                }
-                const slice = buf[0 .. payload.frame_size - 1];
-                _ = try reader.readAll(slice);
-                if (std.mem.indexOfScalar(u8, slice, '/')) |separator_index| {
-                    return TPOS{
-                        .part_index = try std.fmt.parseInt(u16, slice[0..separator_index], 10),
-                        .maybe_total_parts_in_set = try std.fmt.parseInt(u16, slice[separator_index + 1 ..], 10),
-                    };
-                } else {
-                    return TPOS{
-                        .part_index = try std.fmt.parseInt(u16, slice, 10),
-                    };
-                }
-                log.warn("{s}", .{slice});
-            },
-            else => return error.NotSupported,
-        }
-        return error.TODO;
-    }
-};
-
 pub const TXXX = struct {
     const String = util.String(.{});
     allocator: std.mem.Allocator,
 
     encoding: util.TextEncodingDescriptionByte,
+    maybe_utf16_byte_order: ?util.Unicode16ByteOrder,
     description: String.Storage,
     value: String.Storage,
 
@@ -121,42 +30,56 @@ pub const TXXX = struct {
                 try writer.print("(desc='{s}', value='{s}')", .{ self.description.ISO_8859_1, self.value.ISO_8859_1 });
             },
             .UTF_16 => {
-                var desc_utf8_buf: [256]u8 = undefined;
-                var value_utf8_buf: [256]u8 = undefined;
-                const desc_utf8_buf_end = std.unicode.utf16leToUtf8(
-                    &desc_utf8_buf,
-                    self.description.UTF_16,
-                ) catch |err|
-                    return writer.print("{}", .{err});
-                const value_utf8_buf_end = std.unicode.utf16leToUtf8(
-                    &value_utf8_buf,
-                    self.value.UTF_16,
-                ) catch |err|
-                    return writer.print("{}", .{err});
-                const description = desc_utf8_buf[0..desc_utf8_buf_end];
-                const value = value_utf8_buf[0..value_utf8_buf_end];
-                try writer.print("(desc='{s}', value='{s}')", .{ description, value });
+                switch (self.maybe_utf16_byte_order.?) {
+                    .Little => {
+                        var desc_utf8_buf: [256]u8 = undefined;
+                        var value_utf8_buf: [256]u8 = undefined;
+                        const desc_utf8_buf_end = std.unicode.utf16leToUtf8(
+                            &desc_utf8_buf,
+                            self.description.UTF_16LE,
+                        ) catch |err|
+                            return writer.print("{}", .{err});
+                        const value_utf8_buf_end = std.unicode.utf16leToUtf8(
+                            &value_utf8_buf,
+                            self.value.UTF_16LE,
+                        ) catch |err|
+                            return writer.print("{}", .{err});
+                        const description = desc_utf8_buf[0..desc_utf8_buf_end];
+                        const value = value_utf8_buf[0..value_utf8_buf_end];
+                        try writer.print("(desc='{s}', value='{s}')", .{ description, value });
+                    },
+                    .Big => {
+                        @panic("UTF16_BE printing not yet implemented");
+                    },
+                }
             },
         }
     }
 
     pub fn parse(reader: anytype, payload: Payload) !TXXX {
         const text_encoding_description_byte = try util.TextEncodingDescriptionByte.parse(reader);
+        var maybe_utf16_byte_order: ?util.Unicode16ByteOrder = null;
+        var bytes_left = payload.frame_size - 1;
+        if (text_encoding_description_byte == .UTF_16) {
+            maybe_utf16_byte_order = try util.Unicode16ByteOrder.parse(reader);
+            bytes_left -= 2;
+        }
 
         // first, we must read the bytes into a buffer. we then use this buffer to search for the
         // null byte separating the description and value and reinterpret the slices from there
-        var bytes = try payload.allocator.alloc(u8, payload.frame_size - 1);
+        var bytes = try payload.allocator.alloc(u8, bytes_left);
         defer payload.allocator.free(bytes);
 
         _ = try reader.readAll(bytes);
         if (std.mem.indexOfScalar(u8, bytes, 0x00)) |separation_index| {
             var description_reader = std.io.fixedBufferStream(bytes[0..separation_index]).reader();
-            var description = try String.Storage.parse(description_reader, payload.allocator, text_encoding_description_byte, separation_index);
+            var description = try String.Storage.parse(description_reader, payload.allocator, text_encoding_description_byte, separation_index, maybe_utf16_byte_order);
 
             var value_reader = std.io.fixedBufferStream(bytes[separation_index + 1 ..]).reader();
-            var value = try String.Storage.parse(value_reader, payload.allocator, text_encoding_description_byte, separation_index);
+            var value = try String.Storage.parse(value_reader, payload.allocator, text_encoding_description_byte, separation_index, maybe_utf16_byte_order);
 
             return TXXX{
+                .maybe_utf16_byte_order = maybe_utf16_byte_order,
                 .encoding = text_encoding_description_byte,
                 .allocator = payload.allocator,
                 .description = description,
@@ -276,10 +199,10 @@ pub const APIC = struct {
 };
 
 /// helper frames
-pub const SimpleStringFrameOptions = struct {
+pub const StringFrameOptions = struct {
     expect_language: bool = false,
 };
-pub fn SimpleStringFrame(options: SimpleStringFrameOptions) type {
+pub fn StringFrame(options: StringFrameOptions) type {
     return struct {
         const Self = @This();
         const String = util.String(.{
@@ -300,6 +223,93 @@ pub fn SimpleStringFrame(options: SimpleStringFrameOptions) type {
         pub fn deinit(self: *Self) void {
             self.value.deinit();
             self.* = undefined;
+        }
+    };
+}
+
+pub const BinaryBlobFrame = struct {
+    const Self = @This();
+
+    allocator: std.mem.Allocator,
+    data: []const u8,
+
+    pub fn format(
+        self: Self,
+        comptime fmt: []const u8,
+        fmt_options: std.fmt.FormatOptions,
+        writer: anytype,
+    ) !void {
+        _ = fmt;
+        _ = fmt_options;
+        try writer.print("<{} bytes>", .{self.data.len});
+    }
+
+    pub fn parse(reader: anytype, payload: Payload) !Self {
+        var data = try payload.allocator.alloc(u8, payload.frame_size - 1);
+        _ = try reader.readAll(data);
+        return Self{
+            .data = data,
+            .allocator = payload.allocator,
+        };
+    }
+
+    pub fn deinit(self: *Self) void {
+        self.allocator.free(self.data);
+        self.* = undefined;
+    }
+};
+
+pub const NumericStringFrameOptions = struct {
+    maybe_delimiter_char: ?u8 = null,
+    radix: u8 = 10,
+};
+
+pub fn NumericStringFrame(comptime IntType: type, options: NumericStringFrameOptions) type {
+    return struct {
+        const Self = @This();
+
+        value: IntType,
+        second_half: if (options.maybe_delimiter_char != null) ?IntType else void = if (options.maybe_delimiter_char != null) null else {},
+
+        pub fn format(
+            self: Self,
+            comptime fmt: []const u8,
+            fmt_options: std.fmt.FormatOptions,
+            writer: anytype,
+        ) !void {
+            _ = fmt;
+            _ = fmt_options;
+            if (options.maybe_delimiter_char != null) {
+                try writer.print("{}/{}", .{ self.value, self.second_half });
+            } else {
+                try writer.print("{}", .{self.value});
+            }
+        }
+
+        pub fn parse(reader: anytype, payload: Payload) !Self {
+            var string = try util.String(.{}).parse(reader, .{
+                .allocator = payload.allocator,
+                .bytes_left = payload.frame_size - 1,
+            });
+            defer string.deinit();
+
+            var stack_fallback_allocator = std.heap.stackFallback(128, payload.allocator);
+            var utf8_string = try string.asUtf8(stack_fallback_allocator.get());
+            defer utf8_string.deinit();
+
+            const utf8_bytes = std.mem.trimRight(u8, utf8_string.bytes, "\x00");
+
+            if (options.maybe_delimiter_char) |delimiter| {
+                if (std.mem.indexOfScalar(u8, utf8_bytes, delimiter)) |delimiter_index| {
+                    return Self{
+                        .value = try std.fmt.parseInt(IntType, utf8_bytes[0..delimiter_index], options.radix),
+                        .second_half = try std.fmt.parseInt(IntType, utf8_bytes[delimiter_index + 1 ..], options.radix),
+                    };
+                }
+            }
+            return Self{
+                .value = try std.fmt.parseInt(IntType, utf8_bytes, options.radix),
+            };
         }
     };
 }

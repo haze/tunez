@@ -3,24 +3,34 @@ const std = @import("std");
 pub const log = std.log.scoped(.id3v2_3);
 
 pub const Frame = union(enum) {
-    TYER: frames.TYER,
-    TRCK: frames.TRCK,
-    TPOS: frames.TPOS,
     TXXX: frames.TXXX,
     APIC: frames.APIC,
     PRIV: frames.PRIV,
-    TPE1: frames.SimpleStringFrame(.{}),
-    TSRC: frames.SimpleStringFrame(.{}),
-    TIT2: frames.SimpleStringFrame(.{}),
-    TPUB: frames.SimpleStringFrame(.{}),
-    TIT1: frames.SimpleStringFrame(.{}),
-    TCON: frames.SimpleStringFrame(.{}),
-    TPE2: frames.SimpleStringFrame(.{}),
-    TALB: frames.SimpleStringFrame(.{}),
-    TLEN: frames.SimpleStringFrame(.{}),
-    TENC: frames.SimpleStringFrame(.{}),
-    USLT: frames.SimpleStringFrame(.{ .expect_language = true }),
-    COMM: frames.SimpleStringFrame(.{ .expect_language = true }),
+    TYER: frames.NumericStringFrame(u16, .{}),
+    TBPM: frames.NumericStringFrame(u8, .{}),
+    TRCK: frames.NumericStringFrame(u8, .{ .maybe_delimiter_char = '/' }),
+    TPOS: frames.NumericStringFrame(u8, .{ .maybe_delimiter_char = '/' }),
+    TLEN: frames.NumericStringFrame(u64, .{}),
+    TPE1: frames.StringFrame(.{}),
+    TDAT: frames.StringFrame(.{}),
+    TSRC: frames.StringFrame(.{}),
+    TIT2: frames.StringFrame(.{}),
+    TPUB: frames.StringFrame(.{}),
+    TIT1: frames.StringFrame(.{}),
+    TCON: frames.StringFrame(.{}),
+    TPE2: frames.StringFrame(.{}),
+    TALB: frames.StringFrame(.{}),
+    TENC: frames.StringFrame(.{}),
+    USLT: frames.StringFrame(.{ .expect_language = true }),
+    COMM: frames.StringFrame(.{ .expect_language = true }),
+    WPUB: frames.StringFrame(.{}),
+    TCOM: frames.StringFrame(.{}),
+    TOPE: frames.StringFrame(.{}),
+    TSSE: frames.StringFrame(.{}),
+    TCOP: frames.StringFrame(.{}),
+    MCDI: frames.BinaryBlobFrame,
+    // TODO(haze): expand into their own frames further
+    UFID: frames.BinaryBlobFrame,
 
     pub fn format(
         self: Frame,
@@ -32,18 +42,8 @@ pub const Frame = union(enum) {
         _ = options;
         try writer.print("{s} - ", .{@tagName(@as(FrameKind, self))});
         switch (self) {
-            .TYER => |frame| try writer.print("{}", .{frame.year}),
-            .TRCK => |frame| {
-                try writer.print("{}", .{frame.track_index});
-                if (frame.maybe_total_tracks) |total_tracks| {
-                    try writer.print("/{}", .{total_tracks});
-                }
-            },
-            .TPOS => |frame| {
-                try writer.print("{}", .{frame.part_index});
-                if (frame.maybe_total_parts_in_set) |total_parts| {
-                    try writer.print("/{}", .{total_parts});
-                }
+            .MCDI, .UFID => |frame| {
+                try writer.print("{}", .{frame});
             },
             .APIC => |frame| {
                 try writer.print("{s}", .{frame.mime_type});
@@ -54,10 +54,22 @@ pub const Frame = union(enum) {
             .PRIV => |frame| {
                 try writer.print("{}", .{frame});
             },
+            .TYER => |frame| {
+                try writer.print("{}", .{frame});
+            },
+            .TBPM => |frame| {
+                try writer.print("{}", .{frame});
+            },
+            .TLEN => |frame| {
+                try writer.print("{}", .{frame});
+            },
+            .TPOS, .TRCK => |frame| {
+                try writer.print("{}", .{frame});
+            },
             .USLT, .COMM => |frame| {
                 try writer.print("{s}: <content...>", .{&frame.value.language});
             },
-            .TPE1, .TSRC, .TIT2, .TPUB, .TALB, .TCON, .TIT1, .TPE2, .TENC, .TLEN => |frame| {
+            .TPE1, .WPUB, .TOPE, .TCOM, .TSSE, .TCOP, .TDAT, .TSRC, .TIT2, .TPUB, .TALB, .TCON, .TIT1, .TPE2, .TENC => |frame| {
                 try writer.print("{}", .{frame.value});
             },
         }
@@ -126,13 +138,17 @@ pub fn Parser(comptime ReaderType: type) type {
 
             pub fn deinit(self: *Result) void {
                 switch (self.*) {
-                    .frame => |*result_frame| switch (result_frame.*) {
-                        .TPE1, .TSRC, .TIT2, .TPUB, .TALB, .TCON, .TPE2 => |*frame| frame.deinit(),
-                        .PRIV => |*frame| frame.deinit(),
-                        .TXXX => |*frame| frame.deinit(),
-                        .APIC => |*frame| frame.deinit(),
-                        .COMM, .USLT => |*frame| frame.deinit(),
-                        else => {},
+                    .frame => |*result_frame| {
+                        // log.warn("deinit {}", .{result_frame.*});
+                        switch (result_frame.*) {
+                            .TPE1, .TSRC, .TIT1, .TIT2, .TPUB, .TALB, .TCON, .TPE2, .TENC, .TDAT, .TSSE, .TCOP, .TCOM, .WPUB, .TOPE => |*frame| frame.deinit(),
+                            .PRIV => |*frame| frame.deinit(),
+                            .TXXX => |*frame| frame.deinit(),
+                            .APIC => |*frame| frame.deinit(),
+                            .MCDI, .UFID => |*frame| frame.deinit(),
+                            .COMM, .USLT => |*frame| frame.deinit(),
+                            .TBPM, .TRCK, .TYER, .TLEN, .TPOS => {}, // these have nothing to clean up
+                        }
                     },
                     .unknown_frame => |data| data.allocator.free(data.frame_id),
                     else => {},

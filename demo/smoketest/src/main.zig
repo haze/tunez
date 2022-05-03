@@ -17,7 +17,10 @@ pub fn main() anyerror!void {
     defer library_dir.close();
 
     var library_walker = try library_dir.walk(arena.allocator());
+
+    var successful_file_count: usize = 0;
     var file_count: usize = 0;
+
     var file_times = std.ArrayList(u64).init(arena.allocator());
     defer file_times.deinit();
 
@@ -30,6 +33,9 @@ pub fn main() anyerror!void {
         if (entry.kind != .File) continue;
         if (!std.mem.endsWith(u8, entry.basename, "mp3")) continue;
         out.info("Reading {s}", .{entry.basename});
+        defer {
+            file_count += 1;
+        }
         var file = try entry.dir.openFile(entry.basename, .{});
         defer file.close();
         var reader = std.io.bufferedReader(file.reader()).reader();
@@ -59,7 +65,7 @@ pub fn main() anyerror!void {
         }
 
         try file_times.append(timer.read());
-        file_count += 1;
+        successful_file_count += 1;
     }
     var total_time: u64 = 0;
     for (file_times.items) |time|
@@ -84,5 +90,5 @@ pub fn main() anyerror!void {
         }
         try stdout.writeByte('\n');
     }
-    try stdout.print("parsed {} files in {}\n", .{ file_count, std.fmt.fmtDuration(total_time) });
+    try stdout.print("parsed {}/{} files in {}\n", .{ successful_file_count, file_count, std.fmt.fmtDuration(total_time) });
 }

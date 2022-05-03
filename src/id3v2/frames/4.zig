@@ -3,13 +3,7 @@ const frames = @import("4.frames.zig");
 pub const log = std.log.scoped(.id3v2_4);
 
 pub const Frame = union(enum) {
-    TDRC: frames.SimpleStringFrame,
-    TALB: frames.SimpleStringFrame,
-    TPE2: frames.SimpleStringFrame,
-    TPE1: frames.SimpleStringFrame,
-    TIT2: frames.SimpleStringFrame,
-    TRCK: frames.SimpleStringFrame,
-    TENC: frames.SimpleStringFrame,
+    TALB: frames.StringFrame(.{}),
 };
 
 pub const RawHeader = struct {
