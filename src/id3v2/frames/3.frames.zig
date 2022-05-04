@@ -16,6 +16,7 @@ pub const TXXX = struct {
     description: String.Storage,
     value: String.Storage,
 
+    // TODO(haze): convert to string.asUtf8
     pub fn format(
         self: TXXX,
         comptime fmt: []const u8,
@@ -60,6 +61,7 @@ pub const TXXX = struct {
         const text_encoding_description_byte = try util.TextEncodingDescriptionByte.parse(reader);
         var maybe_utf16_byte_order: ?util.Unicode16ByteOrder = null;
         var bytes_left = payload.frame_size - 1;
+
         if (text_encoding_description_byte == .UTF_16) {
             maybe_utf16_byte_order = try util.Unicode16ByteOrder.parse(reader);
             bytes_left -= 2;
@@ -175,10 +177,10 @@ pub const APIC = struct {
         const picture_data = try payload.allocator.alloc(u8, payload.frame_size - counting_reader.bytes_read);
         _ = try reader.readAll(picture_data);
 
-        var temp_file = try std.fs.cwd().createFile("image.png", .{});
-        defer temp_file.close();
-        var writer = temp_file.writer();
-        _ = try writer.writeAll(picture_data);
+        // var temp_file = try std.fs.cwd().createFile("image.png", .{});
+        // defer temp_file.close();
+        // var writer = temp_file.writer();
+        // _ = try writer.writeAll(picture_data);
 
         return APIC{
             .encoding = text_encoding_description_byte,

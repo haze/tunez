@@ -3,6 +3,7 @@ const frames = @import("4.frames.zig");
 pub const log = std.log.scoped(.id3v2_4);
 
 pub const Frame = union(enum) {
+    TXXX: frames.TXXX,
     TALB: frames.StringFrame(.{}),
 };
 
@@ -70,7 +71,8 @@ pub fn Parser(comptime ReaderType: type) type {
             pub fn deinit(self: *Result) void {
                 switch (self.*) {
                     .frame => |*result_frame| switch (result_frame.*) {
-                        else => {},
+                        .TALB => |*frame| frame.deinit(),
+                        .TXXX => |*frame| frame.deinit(),
                     },
                     .unknown_frame => |data| data.allocator.free(data.frame_id),
                     else => {},
