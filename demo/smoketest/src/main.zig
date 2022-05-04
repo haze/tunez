@@ -32,10 +32,12 @@ pub fn main() anyerror!void {
     while (try library_walker.next()) |entry| {
         if (entry.kind != .File) continue;
         if (!std.mem.endsWith(u8, entry.basename, "mp3")) continue;
+
         out.info("Reading {s}", .{entry.basename});
         defer {
             file_count += 1;
         }
+
         var file = try entry.dir.openFile(entry.basename, .{});
         defer file.close();
         var reader = std.io.bufferedReader(file.reader()).reader();

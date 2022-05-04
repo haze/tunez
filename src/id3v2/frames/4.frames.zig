@@ -18,6 +18,39 @@ pub const TXXX = struct {
 
     original_string: String,
 
+    pub fn format(
+        self: TXXX,
+        comptime fmt: []const u8,
+        fmt_options: std.fmt.FormatOptions,
+        writer: anytype,
+    ) !void {
+        _ = fmt_options;
+        _ = fmt;
+
+        var buffer: [256]u8 = undefined;
+        var fixed_buffer_allocator = std.heap.FixedBufferAllocator.init(&buffer);
+
+        var storage_utf8 = self.original_string.asUtf8(fixed_buffer_allocator.allocator()) catch |err| {
+            try writer.print("<failed to decode data to utf8: {}>", .{err});
+            return;
+        };
+        defer storage_utf8.deinit();
+
+        if (std.mem.indexOfScalar(u8, storage_utf8.bytes, 0x00)) |value_delimiter_index| {
+            try writer.print("(len={} sep={}) description='{s}' value='{s}' (whole='{s}')", .{
+                storage_utf8.bytes.len,
+                value_delimiter_index,
+                storage_utf8.bytes[0..value_delimiter_index],
+                storage_utf8.bytes[value_delimiter_index + 1 ..],
+                storage_utf8.bytes,
+            });
+        } else {
+            try writer.print("'{s}'", .{
+                storage_utf8.bytes,
+            });
+        }
+    }
+
     pub fn parse(reader: anytype, payload: Payload) !TXXX {
         const string = try String.parse(reader, .{ .allocator = payload.allocator, .bytes_left = payload.frame_size - 1 });
 

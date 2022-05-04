@@ -4,7 +4,25 @@ pub const log = std.log.scoped(.id3v2_4);
 
 pub const Frame = union(enum) {
     TXXX: frames.TXXX,
+    TRCK: frames.NumericStringFrame(u16, .{ .maybe_delimiter_char = '/' }),
+    TPOS: frames.NumericStringFrame(u16, .{ .maybe_delimiter_char = '/' }),
+    TBPM: frames.NumericStringFrame(u16, .{}),
     TALB: frames.StringFrame(.{}),
+    TCOM: frames.StringFrame(.{}),
+    TCON: frames.StringFrame(.{}),
+    TPE1: frames.StringFrame(.{}),
+    TCOP: frames.StringFrame(.{}),
+    TIT2: frames.StringFrame(.{}),
+    TPE2: frames.StringFrame(.{}),
+    TSSE: frames.StringFrame(.{}),
+    TKEY: frames.StringFrame(.{}),
+    TENC: frames.StringFrame(.{}),
+    TSRC: frames.StringFrame(.{}),
+    TOPE: frames.StringFrame(.{}),
+    // Timestamp frame
+    TDRC: frames.StringFrame(.{}),
+    TDRL: frames.StringFrame(.{}),
+    TDEN: frames.StringFrame(.{}),
 };
 
 pub const RawHeader = struct {
@@ -71,8 +89,9 @@ pub fn Parser(comptime ReaderType: type) type {
             pub fn deinit(self: *Result) void {
                 switch (self.*) {
                     .frame => |*result_frame| switch (result_frame.*) {
-                        .TALB => |*frame| frame.deinit(),
+                        .TALB, .TCOM, .TCON, .TDRC, .TSSE, .TPE1, .TPE2, .TIT2, .TDEN, .TDRL, .TOPE, .TSRC, .TENC, .TKEY, .TCOP => |*frame| frame.deinit(),
                         .TXXX => |*frame| frame.deinit(),
+                        .TRCK, .TPOS, .TBPM => {},
                     },
                     .unknown_frame => |data| data.allocator.free(data.frame_id),
                     else => {},
