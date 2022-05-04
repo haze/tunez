@@ -96,7 +96,6 @@ pub const Timestamp = struct {
         if (bytes_left > LongestPossibleTimestamp.len + 1)
             return error.InvalidTimestampTooLong;
         var timestamp_buf: [LongestPossibleTimestamp.len]u8 = undefined;
-        std.log.warn("bytes_left={}, buf_len={}", .{ bytes_left, timestamp_buf.len });
         const bytes_read = try reader.readAll(timestamp_buf[0..bytes_left]);
 
         var section_iter = std.mem.tokenize(u8, std.mem.trimRight(u8, timestamp_buf[0..bytes_read], "\x00"), "-");
@@ -110,7 +109,7 @@ pub const Timestamp = struct {
                 @typeInfo(Month).Enum.tag_type,
                 section_iter.next() orelse return timestamp,
                 10,
-            ),
+            ) - 1,
         );
         const maybe_day_and_time = section_iter.next();
 
