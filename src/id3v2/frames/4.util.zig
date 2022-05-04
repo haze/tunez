@@ -90,7 +90,7 @@ pub const Timestamp = struct {
 
     // TODO(haze): durations?
     pub fn parseUtf8(reader: anytype, bytes_left: usize) !Timestamp {
-        const LongestPossibleTimestamp = "yyyy-MM-ddTHH:mm:ss";
+        const LongestPossibleTimestamp = "yyyy-MM-ddTHH:mm:ss ";
         // "2013-11-19 16:19:17"
         // +1 for any null termination at the end of shortest (utf8)
         if (bytes_left > LongestPossibleTimestamp.len + 1)
@@ -99,7 +99,7 @@ pub const Timestamp = struct {
         std.log.warn("bytes_left={}, buf_len={}", .{ bytes_left, timestamp_buf.len });
         const bytes_read = try reader.readAll(timestamp_buf[0..bytes_left]);
 
-        var section_iter = std.mem.tokenize(u8, timestamp_buf[0..bytes_read], "-");
+        var section_iter = std.mem.tokenize(u8, std.mem.trimRight(u8, timestamp_buf[0..bytes_read], "\x00"), "-");
         const year_str = section_iter.next() orelse return error.InvalidTimestampMissingYear;
         var timestamp = Timestamp{
             .year = try std.fmt.parseInt(u16, year_str, 10),
