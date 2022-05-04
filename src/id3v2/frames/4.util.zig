@@ -105,11 +105,11 @@ pub const Timestamp = struct {
         };
         timestamp.maybe_month = @intToEnum(
             Month,
-            try std.fmt.parseInt(
+            (try std.fmt.parseInt(
                 @typeInfo(Month).Enum.tag_type,
                 section_iter.next() orelse return timestamp,
                 10,
-            ) - 1,
+            )) - 1,
         );
         const maybe_day_and_time = section_iter.next();
 
