@@ -1,7 +1,7 @@
 //! https://id3.org/id3v2.3.0
 
 const std = @import("std");
-const log = std.log.scoped(.id3v2);
+const log = std.log.scoped(.@"tunez/id3v2");
 
 const versions = struct {
     const v2 = @import("id3v2/frames/2.zig");
@@ -125,22 +125,22 @@ pub fn Parser(comptime ReaderType: type) type {
     };
 }
 
-test {
-    // const mp3_file = @embedFile("/Users/haze/code/tunez/demo/smoketest/test/omg.mp3");
-    // const mp3_file = @embedFile("/Users/haze/Music/Swinsian/Auto/LQ/Unreleased (Goblin Era)/Hey You (feat. Danny Swain).mp3");
-    // const mp3_file = @embedFile("/Users/haze/03. #TakinShitDown.mp3");
-    const mp3_file = @embedFile("/Users/haze/Downloads/cutted.mp3");
-    var reader = std.io.fixedBufferStream(mp3_file).reader();
-
-    const ParserType = Parser(@TypeOf(reader));
-    var parser = ParserType{
-        .allocator = std.testing.allocator,
-        .reader = reader,
-    };
-
-    while (try parser.nextItem()) |*result| {
-        defer result.deinit();
-
-        log.warn("item = {}", .{result});
-    }
-}
+// test {
+//     // const mp3_file = @embedFile("/Users/haze/code/tunez/demo/smoketest/test/omg.mp3");
+//     // const mp3_file = @embedFile("/Users/haze/Music/Swinsian/Auto/LQ/Unreleased (Goblin Era)/Hey You (feat. Danny Swain).mp3");
+//     // const mp3_file = @embedFile("/Users/haze/03. #TakinShitDown.mp3");
+//     const mp3_file = @embedFile("/Users/haze/Downloads/cutted.mp3");
+//     var reader = std.io.fixedBufferStream(mp3_file).reader();
+//
+//     const ParserType = Parser(@TypeOf(reader));
+//     var parser = ParserType{
+//         .allocator = std.testing.allocator,
+//         .reader = reader,
+//     };
+//
+//     while (try parser.nextItem()) |*result| {
+//         defer result.deinit();
+//
+//         log.warn("item = {}", .{result});
+//     }
+// }

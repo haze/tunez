@@ -15,20 +15,21 @@ pub const TextEncodingDescriptionByte = enum(u8) {
 pub const StringOptions = struct {
     expect_language: bool = false,
 };
+
+pub const Utf8String = struct {
+    bytes: []u8,
+    maybe_allocator: ?std.mem.Allocator = null,
+
+    pub fn deinit(self: *Utf8String) void {
+        if (self.maybe_allocator) |allocator|
+            allocator.free(self.bytes);
+        self.* = undefined;
+    }
+};
+
 pub fn String(options: StringOptions) type {
     return struct {
         const Self = @This();
-
-        pub const Utf8String = struct {
-            bytes: []u8,
-            maybe_allocator: ?std.mem.Allocator = null,
-
-            pub fn deinit(self: *Utf8String) void {
-                if (self.maybe_allocator) |allocator|
-                    allocator.free(self.bytes);
-                self.* = undefined;
-            }
-        };
 
         pub const Storage = union(enum) {
             ISO_8859_1: []u8,
