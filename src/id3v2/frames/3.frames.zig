@@ -141,6 +141,17 @@ pub const APIC = struct {
     picture_data: []const u8,
     picture_type: u8,
 
+    pub fn format(
+        self: APIC,
+        comptime fmt: []const u8,
+        options: std.fmt.FormatOptions,
+        writer: anytype,
+    ) !void {
+        _ = fmt;
+        _ = options;
+        try writer.print("<image={s}; {} bytes: ({s})>", .{ self.mime_type, self.picture_data.len, self.description });
+    }
+
     pub fn parse(input_reader: anytype, payload: Payload) !APIC {
         var counting_reader = std.io.countingReader(input_reader);
         var reader = counting_reader.reader();

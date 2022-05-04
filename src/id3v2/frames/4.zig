@@ -2,27 +2,55 @@ const std = @import("std");
 const frames = @import("4.frames.zig");
 pub const log = std.log.scoped(.id3v2_4);
 
+// TODO(haze): these should get their own custom frames:
+//  TLAN
 pub const Frame = union(enum) {
-    TXXX: frames.TXXX,
+    TIT1: frames.StringFrame(.{}),
+    TIT2: frames.StringFrame(.{}),
+    TIT3: frames.StringFrame(.{}),
+    TALB: frames.StringFrame(.{}),
+    TOAL: frames.StringFrame(.{}),
     TRCK: frames.NumericStringFrame(u16, .{ .maybe_delimiter_char = '/' }),
     TPOS: frames.NumericStringFrame(u16, .{ .maybe_delimiter_char = '/' }),
-    TBPM: frames.NumericStringFrame(u16, .{}),
-    TALB: frames.StringFrame(.{}),
-    TCOM: frames.StringFrame(.{}),
-    TCON: frames.StringFrame(.{}),
-    TPE1: frames.StringFrame(.{}),
-    TCOP: frames.StringFrame(.{}),
-    TIT2: frames.StringFrame(.{}),
-    TPE2: frames.StringFrame(.{}),
-    TSSE: frames.StringFrame(.{}),
-    TKEY: frames.StringFrame(.{}),
-    TENC: frames.StringFrame(.{}),
+    TSST: frames.StringFrame(.{}),
     TSRC: frames.StringFrame(.{}),
+    TPE1: frames.StringFrame(.{}),
+    TPE2: frames.StringFrame(.{}),
+    TPE3: frames.StringFrame(.{}),
+    TPE4: frames.StringFrame(.{}),
     TOPE: frames.StringFrame(.{}),
-    // Timestamp frame
-    TDRC: frames.StringFrame(.{}),
-    TDRL: frames.StringFrame(.{}),
-    TDEN: frames.StringFrame(.{}),
+    TEXT: frames.StringFrame(.{}),
+    TOLY: frames.StringFrame(.{}),
+    TCOM: frames.StringFrame(.{}),
+    TMCL: frames.StringFrame(.{}),
+    TIPL: frames.StringFrame(.{}),
+    TENC: frames.StringFrame(.{}),
+    TBPM: frames.NumericStringFrame(u16, .{}),
+    TLEN: frames.NumericStringFrame(u16, .{}),
+    TKEY: frames.StringFrame(.{}),
+    TLAN: frames.StringFrame(.{}),
+    TCON: frames.StringFrame(.{}),
+    TFLT: frames.StringFrame(.{}),
+    TMED: frames.StringFrame(.{}),
+    TMOO: frames.StringFrame(.{}),
+    TCOP: frames.StringFrame(.{}),
+    TPRO: frames.StringFrame(.{}),
+    TPUB: frames.StringFrame(.{}),
+    TOWN: frames.StringFrame(.{}),
+    TRSN: frames.StringFrame(.{}),
+    TRSO: frames.StringFrame(.{}),
+    TOFN: frames.StringFrame(.{}),
+    TDLY: frames.NumericStringFrame(u64, .{}),
+    TDEN: frames.TimestampFrame,
+    TDOR: frames.TimestampFrame,
+    TDRC: frames.TimestampFrame,
+    TDRL: frames.TimestampFrame,
+    TDTG: frames.TimestampFrame,
+    TSSE: frames.StringFrame(.{}),
+    TSOA: frames.StringFrame(.{}),
+    TSOT: frames.StringFrame(.{}),
+    TSOP: frames.StringFrame(.{}),
+    TXXX: frames.TXXX,
 };
 
 pub const RawHeader = struct {
@@ -89,9 +117,12 @@ pub fn Parser(comptime ReaderType: type) type {
             pub fn deinit(self: *Result) void {
                 switch (self.*) {
                     .frame => |*result_frame| switch (result_frame.*) {
-                        .TALB, .TCOM, .TCON, .TDRC, .TSSE, .TPE1, .TPE2, .TIT2, .TDEN, .TDRL, .TOPE, .TSRC, .TENC, .TKEY, .TCOP => |*frame| frame.deinit(),
+                        .TIT1, .TIT2, .TIT3, .TOAL, .TSST, .TPE3, .TPE4, .TEXT, .TOLY, .TMCL, .TIPL, .TLAN, .TFLT, .TMED, .TPRO, .TPUB, .TALB, .TCOM, .TCON, .TSSE, .TPE1, .TPE2, .TOPE, .TSRC, .TENC, .TKEY, .TCOP, .TMOO, .TOWN, .TRSN, .TRSO, .TOFN, .TSOA, .TSOT, .TSOP => |*frame| frame.deinit(),
                         .TXXX => |*frame| frame.deinit(),
-                        .TRCK, .TPOS, .TBPM => {},
+                        // nothing to free in timestamp frames
+                        .TDEN, .TDOR, .TDRC, .TDRL, .TDTG => {},
+                        // nothing to free in numeric string frames
+                        .TRCK, .TPOS, .TBPM, .TDLY, .TLEN => {},
                     },
                     .unknown_frame => |data| data.allocator.free(data.frame_id),
                     else => {},

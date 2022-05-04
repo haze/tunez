@@ -1,9 +1,15 @@
 const std = @import("std");
 const logger = std.log.scoped(.id3v2_4_0_util);
 
+const shared = @import("shared.zig");
+
+pub const Unicode16ByteOrder = shared.Unicode16ByteOrder;
+
 pub const TextEncodingDescriptionByte = enum(u8) {
     ISO_8859_1 = 0x00,
-    UTF_16LE = 0x01,
+    // with BOM
+    UTF_16 = 0x01,
+    // without BOM
     UTF_16BE = 0x02,
     UTF_8 = 0x03,
 
@@ -20,6 +26,32 @@ pub const Timestamp = struct {
     maybe_hour: ?u5 = null,
     maybe_minutes: ?u6 = null,
     maybe_seconds: ?u6 = null,
+
+    pub fn format(
+        self: Timestamp,
+        comptime fmt: []const u8,
+        fmt_options: std.fmt.FormatOptions,
+        writer: anytype,
+    ) !void {
+        _ = fmt;
+        _ = fmt_options;
+        try writer.print("{}", .{self.year});
+        if (self.maybe_month) |month| {
+            try writer.print("-{}", .{@enumToInt(month)});
+        }
+        if (self.maybe_day) |day| {
+            try writer.print("-{}", .{day});
+        }
+        if (self.maybe_hour) |hour| {
+            try writer.print("T{}", .{hour});
+        }
+        if (self.maybe_minutes) |minutes| {
+            try writer.print(":{}", .{minutes});
+        }
+        if (self.maybe_seconds) |seconds| {
+            try writer.print(":{}", .{seconds});
+        }
+    }
 
     pub fn eql(self: Timestamp, other: Timestamp) bool {
         if (self.year != other.year) return false;
@@ -56,18 +88,47 @@ pub const Timestamp = struct {
         return true;
     }
 
-    pub fn parseUtf8(reader: anytype) !Timestamp {
-        var year_buf: [4]u8 = undefined;
-        _ = try reader.read(&year_buf);
-        var working_timestamp = Timestamp{
-            .year = try std.fmt.parseInt(u16, &year_buf, 10),
+    // TODO(haze): durations?
+    pub fn parseUtf8(reader: anytype, bytes_left: usize) !Timestamp {
+        const LongestPossibleTimestamp = "yyyy-MM-ddTHH:mm:ss";
+        var timestamp_buf: [LongestPossibleTimestamp.len]u8 = undefined;
+        const bytes_read = try reader.readAll(timestamp_buf[0..bytes_left]);
+
+        var section_iter = std.mem.tokenize(u8, timestamp_buf[0..bytes_read], "-");
+        const year_str = section_iter.next() orelse return error.InvalidTimestampMissingYear;
+        var timestamp = Timestamp{
+            .year = try std.fmt.parseInt(u16, year_str, 10),
         };
-        return working_timestamp;
+        timestamp.maybe_month = @intToEnum(
+            Month,
+            try std.fmt.parseInt(
+                @typeInfo(Month).Enum.tag_type,
+                section_iter.next() orelse return timestamp,
+                10,
+            ),
+        );
+        const maybe_day_and_time = section_iter.next();
+
+        if (maybe_day_and_time) |day_and_time| {
+            const day_time_sep = std.mem.indexOfScalar(u8, day_and_time, 'T') orelse return error.InvalidTimestampMissingHourForDay;
+            timestamp.maybe_day = try std.fmt.parseInt(u5, day_and_time[0..day_time_sep], 10);
+            const time = day_and_time[day_time_sep + 1 ..];
+            var time_section_iter = std.mem.tokenize(u8, time, ":");
+            timestamp.maybe_hour = try std.fmt.parseInt(u5, time_section_iter.next() orelse return error.InvalidTimestampMissingHours, 10);
+            if (time_section_iter.next()) |minutes| {
+                timestamp.maybe_minutes = try std.fmt.parseInt(u6, minutes, 10);
+            }
+            if (time_section_iter.next()) |seconds| {
+                timestamp.maybe_seconds = try std.fmt.parseInt(u6, seconds, 10);
+            }
+        }
+
+        return timestamp;
     }
 
     pub fn parseUtf8FromSlice(slice: []const u8) !Timestamp {
         var reader = std.io.fixedBufferStream(slice).reader();
-        return Timestamp.parseUtf8(reader);
+        return Timestamp.parseUtf8(reader, slice.len);
     }
 
     test "parse" {
@@ -83,16 +144,15 @@ pub fn String(comptime options: StringOptions) type {
     _ = options;
     return struct {
         const Self = @This();
-        pub const Storage = union(TextEncodingDescriptionByte) {
+        pub const Storage = union(enum) {
             ISO_8859_1: []u8,
             UTF_8: []u8,
-            UTF_16LE: []u16,
-            UTF_16BE: []u16,
+            UTF_16: []u16,
 
-            pub fn parse(reader: anytype, allocator: std.mem.Allocator, text_encoding: TextEncodingDescriptionByte, byte_count: usize) !Storage {
+            pub fn parse(reader: anytype, allocator: std.mem.Allocator, text_encoding: TextEncodingDescriptionByte, input_byte_count: usize) !Storage {
                 switch (text_encoding) {
                     .ISO_8859_1, .UTF_8 => {
-                        const slice = try allocator.alloc(u8, byte_count);
+                        const slice = try allocator.alloc(u8, input_byte_count);
                         _ = try reader.readAll(slice);
                         if (text_encoding == .UTF_8) {
                             return Storage{ .UTF_8 = slice };
@@ -100,27 +160,32 @@ pub fn String(comptime options: StringOptions) type {
                             return Storage{ .ISO_8859_1 = slice };
                         }
                     },
-                    .UTF_16LE, .UTF_16BE => {
+                    .UTF_16, .UTF_16BE => {
+                        var byte_order: Unicode16ByteOrder = .Big;
+                        var byte_count = input_byte_count;
+                        if (text_encoding == .UTF_16) {
+                            byte_order = try Unicode16ByteOrder.parse(reader);
+                            byte_count -= 2;
+                        }
                         const slice = try allocator.alloc(u16, byte_count / 2);
                         var read_index: usize = 0;
-                        if (text_encoding == .UTF_16BE) {
+                        if (byte_order == .Big) {
                             while (read_index < slice.len) : (read_index += 1) {
                                 slice[read_index] = try reader.readIntBig(u16);
                             }
-                            return Storage{ .UTF_16BE = slice };
                         } else {
                             while (read_index < slice.len) : (read_index += 1) {
                                 slice[read_index] = try reader.readIntLittle(u16);
                             }
-                            return Storage{ .UTF_16LE = slice };
                         }
+                        return Storage{ .UTF_16 = slice };
                     },
                 }
             }
 
             pub fn deinit(self: *Storage, allocator: std.mem.Allocator) void {
                 switch (self.*) {
-                    .UTF_16BE, .UTF_16LE => |slice| allocator.free(slice),
+                    .UTF_16 => |slice| allocator.free(slice),
                     .ISO_8859_1, .UTF_8 => |bytes| allocator.free(bytes),
                 }
                 self.* = undefined;
@@ -170,8 +235,7 @@ pub fn String(comptime options: StringOptions) type {
                         .bytes = bytes,
                     };
                 },
-                .UTF_16BE => return error.Utf16BeToUtf8NotYetImplemented,
-                .UTF_16LE => |codepoints| {
+                .UTF_16 => |codepoints| {
                     var bytes = try std.unicode.utf16leToUtf8Alloc(maybe_allocator orelse return error.MissingAllocator, codepoints);
                     return Utf8String{
                         .bytes = bytes,
@@ -182,12 +246,17 @@ pub fn String(comptime options: StringOptions) type {
         }
 
         pub const StringParsePayload = struct {
+            maybe_known_encoding: ?TextEncodingDescriptionByte = null,
             allocator: std.mem.Allocator,
             bytes_left: usize,
         };
 
         pub fn parse(reader: anytype, payload: StringParsePayload) !Self {
-            const text_encoding = try TextEncodingDescriptionByte.parse(reader);
+            const text_encoding =
+                if (payload.maybe_known_encoding) |known_encoding|
+                known_encoding
+            else
+                try TextEncodingDescriptionByte.parse(reader);
             const storage = try Storage.parse(reader, payload.allocator, text_encoding, payload.bytes_left);
 
             return Self{

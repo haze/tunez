@@ -76,25 +76,15 @@ pub const TXXX = struct {
                     }
                 } else return error.InvalidTXXX;
             },
-            .UTF_16LE, .UTF_16BE => |codepoints| {
+            .UTF_16 => |codepoints| {
                 if (std.mem.indexOf(u16, codepoints, &[_]u16{ 0, 0 })) |delimiter_index| {
-                    if (string.storage == .UTF_16LE) {
-                        return TXXX{
-                            .allocator = payload.allocator,
-                            .original_string = string,
-                            .text_encoding = string.encoding,
-                            .description = String.Storage{ .UTF_16LE = codepoints[0..delimiter_index] },
-                            .value = String.Storage{ .UTF_16LE = codepoints[delimiter_index + 1 ..] },
-                        };
-                    } else {
-                        return TXXX{
-                            .allocator = payload.allocator,
-                            .original_string = string,
-                            .text_encoding = string.encoding,
-                            .description = String.Storage{ .UTF_16BE = codepoints[0..delimiter_index] },
-                            .value = String.Storage{ .UTF_16BE = codepoints[delimiter_index + 1 ..] },
-                        };
-                    }
+                    return TXXX{
+                        .allocator = payload.allocator,
+                        .original_string = string,
+                        .text_encoding = string.encoding,
+                        .description = String.Storage{ .UTF_16 = codepoints[0..delimiter_index] },
+                        .value = String.Storage{ .UTF_16 = codepoints[delimiter_index + 1 ..] },
+                    };
                 } else return error.InvalidTXXX;
             },
         }
@@ -188,3 +178,44 @@ pub fn NumericStringFrame(comptime IntType: type, options: NumericStringFrameOpt
         }
     };
 }
+
+pub const TimestampFrame = struct {
+    timestamp: util.Timestamp,
+
+    pub fn format(
+        self: TimestampFrame,
+        comptime fmt: []const u8,
+        fmt_options: std.fmt.FormatOptions,
+        writer: anytype,
+    ) !void {
+        _ = fmt;
+        _ = fmt_options;
+        try writer.print("{}", .{self.timestamp});
+    }
+
+    // TODO(haze): utf16 timestamp parsing
+    pub fn parse(reader: anytype, payload: Payload) !TimestampFrame {
+        const text_encoding = try util.TextEncodingDescriptionByte.parse(reader);
+        switch (text_encoding) {
+            .UTF_8, .ISO_8859_1 => return TimestampFrame{
+                .timestamp = try util.Timestamp.parseUtf8(reader, payload.frame_size - 1),
+            },
+            .UTF_16 => {
+                var utf16_str = try util.String(.{}).parse(reader, .{
+                    .maybe_known_encoding = text_encoding,
+                    .allocator = payload.allocator,
+                    .bytes_left = payload.frame_size - 1,
+                });
+                defer utf16_str.deinit();
+
+                var utf8_str = try utf16_str.asUtf8(payload.allocator);
+                defer utf8_str.deinit();
+
+                return TimestampFrame{
+                    .timestamp = try util.Timestamp.parseUtf8FromSlice(utf8_str.bytes),
+                };
+            },
+            else => return error.UnsupportedTimestampEncoding,
+        }
+    }
+};

@@ -1,15 +1,7 @@
 const std = @import("std");
+const shared = @import("shared.zig");
 
-pub const Unicode16ByteOrder = enum {
-    Big,
-    Little,
-
-    pub fn parse(reader: anytype) !Unicode16ByteOrder {
-        var byte_order: [2]u8 = undefined;
-        _ = try reader.readAll(&byte_order);
-        if (byte_order[0] == 0xFE) return .Big else return .Little;
-    }
-};
+pub const Unicode16ByteOrder = shared.Unicode16ByteOrder;
 
 pub const TextEncodingDescriptionByte = enum(u8) {
     ISO_8859_1 = 0x00,

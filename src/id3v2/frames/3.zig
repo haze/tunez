@@ -2,78 +2,59 @@ const frames = @import("3.frames.zig");
 const std = @import("std");
 pub const log = std.log.scoped(.id3v2_3);
 
+// TODO(haze): Missing frames
+// TODO(haze): These frames should be upgraded
+//  COMM
+//  TIME
 pub const Frame = union(enum) {
-    TXXX: frames.TXXX,
+    // AENC
     APIC: frames.APIC,
-    PRIV: frames.PRIV,
-    TYER: frames.NumericStringFrame(u16, .{}),
-    TBPM: frames.NumericStringFrame(u8, .{}),
-    TRCK: frames.NumericStringFrame(u8, .{ .maybe_delimiter_char = '/' }),
-    TPOS: frames.NumericStringFrame(u8, .{ .maybe_delimiter_char = '/' }),
-    TLEN: frames.NumericStringFrame(u64, .{}),
-    TPE1: frames.StringFrame(.{}),
-    TDAT: frames.StringFrame(.{}),
-    TSRC: frames.StringFrame(.{}),
-    TIT2: frames.StringFrame(.{}),
-    TPUB: frames.StringFrame(.{}),
-    TIT1: frames.StringFrame(.{}),
-    TCON: frames.StringFrame(.{}),
-    TPE2: frames.StringFrame(.{}),
-    TALB: frames.StringFrame(.{}),
-    TENC: frames.StringFrame(.{}),
-    USLT: frames.StringFrame(.{ .expect_language = true }),
     COMM: frames.StringFrame(.{ .expect_language = true }),
-    WPUB: frames.StringFrame(.{}),
+    USLT: frames.StringFrame(.{ .expect_language = true }),
+    // ENCR
+    TALB: frames.StringFrame(.{}),
+    TBPM: frames.NumericStringFrame(u16, .{}),
     TCOM: frames.StringFrame(.{}),
-    TOPE: frames.StringFrame(.{}),
-    TSSE: frames.StringFrame(.{}),
+    TCON: frames.StringFrame(.{}),
     TCOP: frames.StringFrame(.{}),
+    TDAT: frames.NumericStringFrame(u16, .{}),
+    TDLY: frames.NumericStringFrame(u64, .{}),
+    TENC: frames.StringFrame(.{}),
+    TEXT: frames.StringFrame(.{}),
+    TFLT: frames.StringFrame(.{}),
+    TIME: frames.StringFrame(.{}),
+    TIT1: frames.StringFrame(.{}),
+    TIT2: frames.StringFrame(.{}),
+    TIT3: frames.StringFrame(.{}),
+    TKEY: frames.StringFrame(.{}),
+    TLEN: frames.NumericStringFrame(u64, .{}),
+    TMED: frames.StringFrame(.{}),
+    TOAL: frames.StringFrame(.{}),
+    TOFN: frames.StringFrame(.{}),
+    TOLY: frames.StringFrame(.{}),
+    TOPE: frames.StringFrame(.{}),
+    TORY: frames.NumericStringFrame(u16, .{}),
+    TOWN: frames.StringFrame(.{}),
+    TPE1: frames.StringFrame(.{}),
+    TPE2: frames.StringFrame(.{}),
+    TPE3: frames.StringFrame(.{}),
+    TPE4: frames.StringFrame(.{}),
+    TPOS: frames.NumericStringFrame(u8, .{ .maybe_delimiter_char = '/' }),
+    TPUB: frames.StringFrame(.{}),
+    TRCK: frames.NumericStringFrame(u8, .{ .maybe_delimiter_char = '/' }),
+    TRDA: frames.NumericStringFrame(u16, .{}),
+    TRSN: frames.StringFrame(.{}),
+    TRSO: frames.StringFrame(.{}),
+    TSIZ: frames.NumericStringFrame(u64, .{}),
+    TSRC: frames.StringFrame(.{}),
+    TSSE: frames.StringFrame(.{}),
+    TYER: frames.NumericStringFrame(u16, .{}),
+    TXXX: frames.TXXX,
+    IPLS: frames.StringFrame(.{}),
     MCDI: frames.BinaryBlobFrame,
-    // TODO(haze): expand into their own frames further
+    WPUB: frames.StringFrame(.{}),
     UFID: frames.BinaryBlobFrame,
-
-    pub fn format(
-        self: Frame,
-        comptime fmt: []const u8,
-        options: std.fmt.FormatOptions,
-        writer: anytype,
-    ) !void {
-        _ = fmt;
-        _ = options;
-        try writer.print("{s} - ", .{@tagName(@as(FrameKind, self))});
-        switch (self) {
-            .MCDI, .UFID => |frame| {
-                try writer.print("{}", .{frame});
-            },
-            .APIC => |frame| {
-                try writer.print("{s}", .{frame.mime_type});
-            },
-            .TXXX => |frame| {
-                try writer.print("{}", .{frame});
-            },
-            .PRIV => |frame| {
-                try writer.print("{}", .{frame});
-            },
-            .TYER => |frame| {
-                try writer.print("{}", .{frame});
-            },
-            .TBPM => |frame| {
-                try writer.print("{}", .{frame});
-            },
-            .TLEN => |frame| {
-                try writer.print("{}", .{frame});
-            },
-            .TPOS, .TRCK => |frame| {
-                try writer.print("{}", .{frame});
-            },
-            .USLT, .COMM => |frame| {
-                try writer.print("{s}: <content...>", .{&frame.value.language});
-            },
-            .TPE1, .WPUB, .TOPE, .TCOM, .TSSE, .TCOP, .TDAT, .TSRC, .TIT2, .TPUB, .TALB, .TCON, .TIT1, .TPE2, .TENC => |frame| {
-                try writer.print("{}", .{frame.value});
-            },
-        }
-    }
+    PRIV: frames.PRIV,
 };
 
 const FrameKind = @typeInfo(Frame).Union.tag_type.?;
@@ -139,15 +120,14 @@ pub fn Parser(comptime ReaderType: type) type {
             pub fn deinit(self: *Result) void {
                 switch (self.*) {
                     .frame => |*result_frame| {
-                        // log.warn("deinit {}", .{result_frame.*});
                         switch (result_frame.*) {
-                            .TPE1, .TSRC, .TIT1, .TIT2, .TPUB, .TALB, .TCON, .TPE2, .TENC, .TDAT, .TSSE, .TCOP, .TCOM, .WPUB, .TOPE => |*frame| frame.deinit(),
+                            .TPE1, .TSRC, .TIT1, .TIT2, .TPUB, .TALB, .TOWN, .TCON, .TPE2, .TENC, .TSSE, .TCOP, .TCOM, .WPUB, .TOPE, .TEXT, .TFLT, .TIT3, .TKEY, .TMED, .TOAL, .TOFN, .TRSO, .TRSN, .IPLS, .TIME, .TOLY, .TPE3, .TPE4 => |*frame| frame.deinit(),
                             .PRIV => |*frame| frame.deinit(),
                             .TXXX => |*frame| frame.deinit(),
                             .APIC => |*frame| frame.deinit(),
                             .MCDI, .UFID => |*frame| frame.deinit(),
                             .COMM, .USLT => |*frame| frame.deinit(),
-                            .TBPM, .TRCK, .TYER, .TLEN, .TPOS => {}, // these have nothing to clean up
+                            .TBPM, .TRCK, .TYER, .TLEN, .TPOS, .TDLY, .TSIZ, .TORY, .TRDA, .TDAT => {}, // these have nothing to clean up
                         }
                     },
                     .unknown_frame => |data| data.allocator.free(data.frame_id),
