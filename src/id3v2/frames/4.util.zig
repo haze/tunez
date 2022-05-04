@@ -91,7 +91,12 @@ pub const Timestamp = struct {
     // TODO(haze): durations?
     pub fn parseUtf8(reader: anytype, bytes_left: usize) !Timestamp {
         const LongestPossibleTimestamp = "yyyy-MM-ddTHH:mm:ss";
+        // "2013-11-19 16:19:17"
+        // +1 for any null termination at the end of shortest (utf8)
+        if (bytes_left > LongestPossibleTimestamp.len + 1)
+            return error.InvalidTimestampTooLong;
         var timestamp_buf: [LongestPossibleTimestamp.len]u8 = undefined;
+        std.log.warn("bytes_left={}, buf_len={}", .{ bytes_left, timestamp_buf.len });
         const bytes_read = try reader.readAll(timestamp_buf[0..bytes_left]);
 
         var section_iter = std.mem.tokenize(u8, timestamp_buf[0..bytes_read], "-");
@@ -110,7 +115,7 @@ pub const Timestamp = struct {
         const maybe_day_and_time = section_iter.next();
 
         if (maybe_day_and_time) |day_and_time| {
-            const day_time_sep = std.mem.indexOfScalar(u8, day_and_time, 'T') orelse return error.InvalidTimestampMissingHourForDay;
+            const day_time_sep = std.mem.indexOfScalar(u8, day_and_time, 'T') orelse std.mem.indexOfScalar(u8, day_and_time, ' ') orelse return error.InvalidTimestampMissingHourForDay;
             timestamp.maybe_day = try std.fmt.parseInt(u5, day_and_time[0..day_time_sep], 10);
             const time = day_and_time[day_time_sep + 1 ..];
             var time_section_iter = std.mem.tokenize(u8, time, ":");
