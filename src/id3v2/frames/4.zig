@@ -53,6 +53,18 @@ pub const Frame = union(enum) {
     TXXX: frames.TXXX,
 };
 
+pub const RawExtendedHeader = struct {
+    allocator: std.mem.Allocator,
+
+    flags: []u8,
+    size: u32,
+
+    pub fn deinit(self: *RawExtendedHeader) void {
+        self.allocator.free(self.flags);
+        self.* = undefined;
+    }
+};
+
 pub const RawHeader = struct {
     pub const HasUnsynchronisationMask = 1 << 7;
     pub const HasExtendedHeaderMask = 1 << 6;
@@ -86,6 +98,9 @@ pub fn Parser(comptime ReaderType: type) type {
         const State = union(enum) {
             reading_header,
             finished,
+            reading_extended_header: struct {
+                bytes_left: u64,
+            },
             reading_frame_or_padding: struct {
                 bytes_left: u64,
             },
@@ -93,6 +108,7 @@ pub fn Parser(comptime ReaderType: type) type {
 
         pub const Result = union(enum) {
             header: Header,
+            extended_header: RawExtendedHeader,
             frame: Frame,
             unknown_frame: struct {
                 frame_id: []const u8,
@@ -109,6 +125,7 @@ pub fn Parser(comptime ReaderType: type) type {
                 _ = options;
                 return switch (self) {
                     .header => |header| writer.print("Header {}", .{header}),
+                    .extended_header => |header| writer.print("Extended Header {}", .{header}),
                     .frame => |frame| writer.print("Frame {}", .{frame}),
                     .unknown_frame => |data| writer.print("Unkowwn Frame {s}", .{data.frame_id}),
                 };
@@ -177,7 +194,7 @@ pub fn Parser(comptime ReaderType: type) type {
                                     };
                                 }
                             }
-                            log.warn("unknown frame id: {s}", .{frame_id});
+                            log.warn("unknown frame id: {s} ({any})", .{ frame_id, frame_id });
 
                             try self.reader.skipBytes(frame_size, .{});
                             const bytes_consumed = frame_size + 10;
@@ -191,6 +208,21 @@ pub fn Parser(comptime ReaderType: type) type {
                                 },
                             };
                         }
+                    },
+                    .reading_extended_header => |payload| {
+                        const extended_header_size = try self.reader.readIntBig(u32);
+                        _ = try self.reader.skipBytes(extended_header_size - 4, .{});
+                        // const number_of_flag_bytes = try self.reader.readByte();
+                        // // TODO(haze): we could probably remove this
+                        // var flag_bytes = try self.allocator.alloc(u8, number_of_flag_bytes);
+                        // _ = try self.reader.readAll(flag_bytes);
+                        // const raw_extended_header = RawExtendedHeader{
+                        //     .allocator = self.allocator,
+                        //     .flags = flag_bytes,
+                        //     .size = extended_header_size,
+                        // };
+                        self.state = .{ .reading_frame_or_padding = .{ .bytes_left = payload.bytes_left - extended_header_size } };
+                        // return Result{ .extended_header = raw_extended_header };
                     },
                     .reading_header => {
                         const flags = try self.reader.readByte();
@@ -207,8 +239,13 @@ pub fn Parser(comptime ReaderType: type) type {
                             .flags = flags,
                             .size = tag_size,
                         };
-                        self.state = .{ .reading_frame_or_padding = .{ .bytes_left = tag_size } };
-                        return Result{ .header = raw_header.interpret() };
+                        const interpreted_header = raw_header.interpret();
+                        if (interpreted_header.has_extended_header) {
+                            self.state = .{ .reading_extended_header = .{ .bytes_left = tag_size } };
+                        } else {
+                            self.state = .{ .reading_frame_or_padding = .{ .bytes_left = tag_size } };
+                        }
+                        return Result{ .header = interpreted_header };
                     },
                 }
             }

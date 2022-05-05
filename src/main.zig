@@ -39,6 +39,7 @@ pub fn resolveId3(reader: anytype, allocator: std.mem.Allocator) !AudioInfo {
 
     while (try parser.nextItem()) |*result| {
         defer result.deinit();
+        std.log.warn("item = {}", .{result});
 
         switch (result.*) {
             .v3 => |*v3_result| {
@@ -109,7 +110,7 @@ pub fn resolveId3(reader: anytype, allocator: std.mem.Allocator) !AudioInfo {
 
 test {
     // std.testing.refAllDecls(id3);
-    const file_path = "/Users/haze/Downloads/01_-_Gesaffelstein_-_Out_Of_Line.mp3";
+    const file_path = "/Users/haze/Downloads/audio_test_vector.mp3";
     var file = try std.fs.cwd().openFile(file_path, .{});
     defer file.close();
 
