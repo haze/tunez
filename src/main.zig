@@ -11,7 +11,7 @@ pub const AudioInfo = struct {
     maybe_track_album: ?[]const u8 = null,
     maybe_track_artists: ?[][]const u8 = null,
 
-    fn deinit(self: *AudioInfo) void {
+    pub fn deinit(self: *AudioInfo) void {
         if (self.maybe_track_title) |track_title|
             self.allocator.free(track_title);
         if (self.maybe_track_album) |track_album|
