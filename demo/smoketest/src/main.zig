@@ -4,6 +4,21 @@ const std = @import("std");
 const tunez = @import("tunez");
 const out = std.log.scoped(.smoketest);
 
+pub fn squelchLogs(
+    comptime message_level: std.log.Level,
+    comptime scope: @Type(.EnumLiteral),
+    comptime format: []const u8,
+    args: anytype,
+) void {
+    _ = message_level;
+    _ = scope;
+    _ = format;
+    _ = args;
+}
+
+const silence_logs = true;
+pub const log = if (silence_logs) squelchLogs else std.log.defaultLog;
+
 pub fn main() anyerror!void {
     var arena = std.heap.ArenaAllocator.init(std.heap.c_allocator);
     defer arena.deinit();
@@ -45,7 +60,9 @@ pub fn main() anyerror!void {
 
         var file = try entry.dir.openFile(entry.basename, .{});
         defer file.close();
-        var reader = std.io.bufferedReader(file.reader()).reader();
+        var reader = (std.io.BufferedReader(4096 * 4, @TypeOf(file.reader())){
+            .unbuffered_reader = file.reader(),
+        }).reader();
 
         var timer = try std.time.Timer.start();
         if (is_mp3) {
