@@ -145,7 +145,7 @@ pub fn NumericStringFrame(comptime IntType: type, options: NumericStringFrameOpt
             _ = fmt;
             _ = fmt_options;
             if (options.maybe_delimiter_char != null) {
-                try writer.print("{}/{}", .{ self.value, self.second_half });
+                try writer.print("{}/{?}", .{ self.value, self.second_half });
             } else {
                 try writer.print("{}", .{self.value});
             }
