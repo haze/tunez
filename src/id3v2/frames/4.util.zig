@@ -131,7 +131,8 @@ pub const Timestamp = struct {
     }
 
     pub fn parseUtf8FromSlice(slice: []const u8) !Timestamp {
-        var reader = std.io.fixedBufferStream(slice).reader();
+        var stream = std.io.fixedBufferStream(slice);
+        var reader = stream.reader();
         return Timestamp.parseUtf8(reader, slice.len);
     }
 
@@ -187,12 +188,11 @@ pub fn String(comptime options: StringOptions) type {
                 }
             }
 
-            pub fn deinit(self: *Storage, allocator: std.mem.Allocator) void {
-                switch (self.*) {
+            pub fn deinit(self: Storage, allocator: std.mem.Allocator) void {
+                switch (self) {
                     .UTF_16 => |slice| allocator.free(slice),
                     .ISO_8859_1, .UTF_8 => |bytes| allocator.free(bytes),
                 }
-                self.* = undefined;
             }
         };
 
@@ -225,10 +225,9 @@ pub fn String(comptime options: StringOptions) type {
             bytes: []const u8,
             maybe_allocator: ?std.mem.Allocator = null,
 
-            pub fn deinit(self: *Utf8String) void {
+            pub fn deinit(self: Utf8String) void {
                 if (self.maybe_allocator) |allocator|
                     allocator.free(self.bytes);
-                self.* = undefined;
             }
         };
 
@@ -270,9 +269,8 @@ pub fn String(comptime options: StringOptions) type {
             };
         }
 
-        pub fn deinit(self: *Self) void {
+        pub fn deinit(self: Self) void {
             self.storage.deinit(self.allocator);
-            self.* = undefined;
         }
     };
 }

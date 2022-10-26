@@ -154,11 +154,10 @@ pub const ExtendedHeader = struct {
         try writer.writeAll("]}");
     }
 
-    pub fn deinit(self: *ExtendedHeader) void {
-        for (self.flags) |*flag|
+    pub fn deinit(self: ExtendedHeader) void {
+        for (self.flags) |flag|
             flag.deinit(self.allocator); // free the crc data
         self.allocator.free(self.flags);
-        self.* = undefined;
     }
 };
 
@@ -212,10 +211,9 @@ pub const ExtendedHeaderFlag = struct {
         try writer.writeAll(" }");
     }
 
-    pub fn deinit(self: *ExtendedHeaderFlag, allocator: std.mem.Allocator) void {
+    pub fn deinit(self: ExtendedHeaderFlag, allocator: std.mem.Allocator) void {
         if (self.maybe_crc_data) |crc_data|
             allocator.free(crc_data);
-        self.* = undefined;
     }
 };
 
@@ -266,9 +264,8 @@ pub const RawExtendedHeader = struct {
         return extended_header;
     }
 
-    pub fn deinit(self: *RawExtendedHeader) void {
+    pub fn deinit(self: RawExtendedHeader) void {
         self.allocator.free(self.flags);
-        self.* = undefined;
     }
 };
 
@@ -338,18 +335,18 @@ pub fn Parser(comptime ReaderType: type) type {
                 };
             }
 
-            pub fn deinit(self: *Result) void {
-                switch (self.*) {
-                    .frame => |*result_frame| switch (result_frame.*) {
-                        .TIT1, .TIT2, .TIT3, .TOAL, .TSST, .TPE3, .TPE4, .TEXT, .TOLY, .TMCL, .TIPL, .TLAN, .TFLT, .TMED, .TPRO, .TPUB, .TALB, .TCOM, .TCON, .TSSE, .TPE1, .TPE2, .TOPE, .TSRC, .TENC, .TKEY, .TCOP, .TMOO, .TOWN, .TRSN, .TRSO, .TOFN, .TSOA, .TSOT, .TSOP => |*frame| frame.deinit(),
-                        .TXXX => |*frame| frame.deinit(),
+            pub fn deinit(self: Result) void {
+                switch (self) {
+                    .frame => |result_frame| switch (result_frame) {
+                        .TIT1, .TIT2, .TIT3, .TOAL, .TSST, .TPE3, .TPE4, .TEXT, .TOLY, .TMCL, .TIPL, .TLAN, .TFLT, .TMED, .TPRO, .TPUB, .TALB, .TCOM, .TCON, .TSSE, .TPE1, .TPE2, .TOPE, .TSRC, .TENC, .TKEY, .TCOP, .TMOO, .TOWN, .TRSN, .TRSO, .TOFN, .TSOA, .TSOT, .TSOP => |frame| frame.deinit(),
+                        .TXXX => |frame| frame.deinit(),
                         // nothing to free in timestamp frames
                         .TDEN, .TDOR, .TDRC, .TDRL, .TDTG => {},
                         // nothing to free in numeric string frames
                         .TRCK, .TPOS, .TBPM, .TDLY, .TLEN => {},
                     },
                     .unknown_frame => |data| data.allocator.free(data.frame_id),
-                    .extended_header => |*extended_header| extended_header.deinit(),
+                    .extended_header => |extended_header| extended_header.deinit(),
                     .header => {},
                 }
             }

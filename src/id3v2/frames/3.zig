@@ -117,16 +117,16 @@ pub fn Parser(comptime ReaderType: type) type {
                 };
             }
 
-            pub fn deinit(self: *Result) void {
-                switch (self.*) {
-                    .frame => |*result_frame| {
-                        switch (result_frame.*) {
+            pub fn deinit(self: Result) void {
+                switch (self) {
+                    .frame => |result_frame| {
+                        switch (result_frame) {
                             .TPE1, .TSRC, .TIT1, .TIT2, .TPUB, .TALB, .TOWN, .TCON, .TPE2, .TENC, .TSSE, .TCOP, .TCOM, .WPUB, .TOPE, .TEXT, .TFLT, .TIT3, .TKEY, .TMED, .TOAL, .TOFN, .TRSO, .TRSN, .IPLS, .TIME, .TOLY, .TPE3, .TPE4 => |*frame| frame.deinit(),
-                            .PRIV => |*frame| frame.deinit(),
-                            .TXXX => |*frame| frame.deinit(),
-                            .APIC => |*frame| frame.deinit(),
-                            .MCDI, .UFID => |*frame| frame.deinit(),
-                            .COMM, .USLT => |*frame| frame.deinit(),
+                            .PRIV => |frame| frame.deinit(),
+                            .TXXX => |frame| frame.deinit(),
+                            .APIC => |frame| frame.deinit(),
+                            .MCDI, .UFID => |frame| frame.deinit(),
+                            .COMM, .USLT => |frame| frame.deinit(),
                             .TBPM, .TRCK, .TYER, .TLEN, .TPOS, .TDLY, .TSIZ, .TORY, .TRDA, .TDAT => {}, // these have nothing to clean up
                         }
                     },

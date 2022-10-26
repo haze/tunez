@@ -5,9 +5,8 @@ pub const CommentHeader = struct {
     vendor_string: []const u8,
     user_comment_list_length: u32,
 
-    pub fn deinit(self: *CommentHeader, allocator: std.mem.Allocator) void {
+    pub fn deinit(self: CommentHeader, allocator: std.mem.Allocator) void {
         allocator.free(self.vendor_string);
-        self.* = undefined;
     }
 };
 
@@ -16,9 +15,8 @@ pub const Comment = struct {
     field_name: []const u8,
     field_value: []const u8,
 
-    pub fn deinit(self: *Comment, allocator: std.mem.Allocator) void {
+    pub fn deinit(self: Comment, allocator: std.mem.Allocator) void {
         allocator.free(self.field);
-        self.* = undefined;
     }
 };
 
@@ -28,7 +26,7 @@ pub const OggVorbisCommentParserOptions = struct {
 };
 
 // NOTE: FLAC ogg vorbis files have no framing bit
-pub fn Parser(comptime ReaderType: type, options: OggVorbisCommentParserOptions) type {
+pub fn Parser(comptime ReaderType: type, comptime options: OggVorbisCommentParserOptions) type {
     return struct {
         const Self = @This();
         const State = union(enum) {
@@ -41,12 +39,11 @@ pub fn Parser(comptime ReaderType: type, options: OggVorbisCommentParserOptions)
             header: CommentHeader,
             comment: Comment,
 
-            pub fn deinit(self: *Result) void {
+            pub fn deinit(self: Result) void {
                 switch (self) {
-                    .header => |*header| header.deinit(),
-                    .comment => |*comment| comment.deinit(),
+                    .header => |header| header.deinit(),
+                    .comment => |comment| comment.deinit(),
                 }
-                self.* = undefined;
             }
         };
 

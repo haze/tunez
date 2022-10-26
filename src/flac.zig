@@ -14,11 +14,10 @@ pub fn Parser(comptime ReaderType: type) type {
         pub const Result = union(enum) {
             metadata_block: metadata_block.MetadataBlock,
 
-            pub fn deinit(self: *Result, allocator: std.mem.Allocator) void {
-                switch (self.*) {
-                    .metadata_block => |*block| block.deinit(allocator),
+            pub fn deinit(self: Result, allocator: std.mem.Allocator) void {
+                switch (self) {
+                    .metadata_block => |block| block.deinit(allocator),
                 }
-                self.* = undefined;
             }
         };
 

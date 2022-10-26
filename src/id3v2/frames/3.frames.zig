@@ -74,10 +74,12 @@ pub const TXXX = struct {
 
         _ = try reader.readAll(bytes);
         if (std.mem.indexOfScalar(u8, bytes, 0x00)) |separation_index| {
-            var description_reader = std.io.fixedBufferStream(bytes[0..separation_index]).reader();
+            var description_stream = std.io.fixedBufferStream(bytes[0..separation_index]);
+            var description_reader = description_stream.reader();
             var description = try String.Storage.parse(description_reader, payload.allocator, text_encoding_description_byte, separation_index, maybe_utf16_byte_order);
 
-            var value_reader = std.io.fixedBufferStream(bytes[separation_index + 1 ..]).reader();
+            var value_stream = std.io.fixedBufferStream(bytes[separation_index + 1 ..]);
+            var value_reader = value_stream.reader();
             var value = try String.Storage.parse(value_reader, payload.allocator, text_encoding_description_byte, separation_index, maybe_utf16_byte_order);
 
             return TXXX{
@@ -90,10 +92,9 @@ pub const TXXX = struct {
         } else return error.InvalidTXXX;
     }
 
-    pub fn deinit(self: *TXXX) void {
+    pub fn deinit(self: TXXX) void {
         self.description.deinit(self.allocator);
         self.value.deinit(self.allocator);
-        self.* = undefined;
     }
 };
 
@@ -126,10 +127,9 @@ pub const PRIV = struct {
         };
     }
 
-    pub fn deinit(self: *PRIV) void {
+    pub fn deinit(self: PRIV) void {
         self.allocator.free(self.owner_identifier);
         self.allocator.free(self.private_data);
-        self.* = undefined;
     }
 };
 
@@ -203,11 +203,10 @@ pub const APIC = struct {
         };
     }
 
-    pub fn deinit(self: *APIC) void {
+    pub fn deinit(self: APIC) void {
         self.allocator.free(self.mime_type);
         self.allocator.free(self.description);
         self.allocator.free(self.picture_data);
-        self.* = undefined;
     }
 };
 
@@ -215,7 +214,7 @@ pub const APIC = struct {
 pub const StringFrameOptions = struct {
     expect_language: bool = false,
 };
-pub fn StringFrame(options: StringFrameOptions) type {
+pub fn StringFrame(comptime options: StringFrameOptions) type {
     return struct {
         const Self = @This();
         const String = util.String(.{
@@ -233,9 +232,8 @@ pub fn StringFrame(options: StringFrameOptions) type {
             };
         }
 
-        pub fn deinit(self: *Self) void {
+        pub fn deinit(self: Self) void {
             self.value.deinit();
-            self.* = undefined;
         }
     };
 }
@@ -266,9 +264,8 @@ pub const BinaryBlobFrame = struct {
         };
     }
 
-    pub fn deinit(self: *Self) void {
+    pub fn deinit(self: Self) void {
         self.allocator.free(self.data);
-        self.* = undefined;
     }
 };
 
@@ -277,7 +274,7 @@ pub const NumericStringFrameOptions = struct {
     radix: u8 = 10,
 };
 
-pub fn NumericStringFrame(comptime IntType: type, options: NumericStringFrameOptions) type {
+pub fn NumericStringFrame(comptime IntType: type, comptime options: NumericStringFrameOptions) type {
     return struct {
         const Self = @This();
 

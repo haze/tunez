@@ -90,9 +90,8 @@ pub const TXXX = struct {
         }
     }
 
-    pub fn deinit(self: *TXXX) void {
+    pub fn deinit(self: TXXX) void {
         self.original_string.deinit();
-        self.* = undefined;
     }
 };
 
@@ -117,9 +116,8 @@ pub fn StringFrame(comptime options: StringFrameOptions) type {
             };
         }
 
-        pub fn deinit(self: *Self) void {
+        pub fn deinit(self: Self) void {
             self.value.deinit();
-            self.* = undefined;
         }
     };
 }
@@ -129,7 +127,7 @@ pub const NumericStringFrameOptions = struct {
     radix: u8 = 10,
 };
 
-pub fn NumericStringFrame(comptime IntType: type, options: NumericStringFrameOptions) type {
+pub fn NumericStringFrame(comptime IntType: type, comptime options: NumericStringFrameOptions) type {
     return struct {
         const Self = @This();
 

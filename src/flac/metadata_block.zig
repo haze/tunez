@@ -42,16 +42,15 @@ pub const Body = union(BlockKind) {
     picture: void,
     invalid: void,
 
-    pub fn deinit(self: *Body, allocator: std.mem.Allocator) void {
-        switch (self.*) {
-            .vorbis_comment => |*comments| {
-                for (comments.*) |*comment|
+    pub fn deinit(self: Body, allocator: std.mem.Allocator) void {
+        switch (self) {
+            .vorbis_comment => |comments| {
+                for (comments) |comment|
                     comment.deinit(allocator);
-                allocator.free(comments.*);
+                allocator.free(comments);
             },
             else => {},
         }
-        self.* = undefined;
     }
 };
 
@@ -96,9 +95,8 @@ pub const MetadataBlock = struct {
         return block;
     }
 
-    pub fn deinit(self: *MetadataBlock, allocator: std.mem.Allocator) void {
-        if (self.maybe_body) |*body|
+    pub fn deinit(self: MetadataBlock, allocator: std.mem.Allocator) void {
+        if (self.maybe_body) |body|
             body.deinit(allocator);
-        self.* = undefined;
     }
 };
