@@ -84,7 +84,7 @@ pub const MetadataBlock = struct {
                         .comment => |comment| try comments.append(comment),
                     }
                 }
-                block.maybe_body = .{ .vorbis_comment = comments.toOwnedSlice() };
+                block.maybe_body = .{ .vorbis_comment = try comments.toOwnedSlice() };
             },
             else => {
                 _ = try reader.skipBytes(block_length, .{});

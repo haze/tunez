@@ -86,7 +86,7 @@ pub fn resolveFlac(reader: anytype, allocator: std.mem.Allocator) !AudioInfo {
     }
 
     if (artists.items.len > 0) {
-        audio_info.maybe_track_artists = artists.toOwnedSlice();
+        audio_info.maybe_track_artists = try artists.toOwnedSlice();
     }
 
     return audio_info;
@@ -169,7 +169,7 @@ pub fn resolveId3(reader: anytype, allocator: std.mem.Allocator) !AudioInfo {
     }
 
     if (artists.items.len != 0) {
-        audio_info.maybe_track_artists = artists.toOwnedSlice();
+        audio_info.maybe_track_artists = try artists.toOwnedSlice();
     }
 
     return audio_info;
