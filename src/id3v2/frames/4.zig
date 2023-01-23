@@ -389,7 +389,7 @@ pub fn Parser(comptime ReaderType: type) type {
                                 if (std.mem.eql(u8, field.name, &frame_id)) {
                                     payload.bytes_left -= (frame_size + 10);
                                     return Result{
-                                        .frame = @unionInit(Frame, field.name, try field.field_type.parse(
+                                        .frame = @unionInit(Frame, field.name, try field.type.parse(
                                             self.reader,
                                             .{
                                                 .allocator = self.allocator,
