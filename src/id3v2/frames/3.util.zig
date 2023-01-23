@@ -20,14 +20,14 @@ pub const Utf8String = struct {
     bytes: []u8,
     maybe_allocator: ?std.mem.Allocator = null,
 
-    pub fn deinit(self: *Utf8String) void {
-        if (self.maybe_allocator) |allocator|
+    pub fn deinit(self: Utf8String) void {
+        if (self.maybe_allocator) |allocator| {
             allocator.free(self.bytes);
-        self.* = undefined;
+        }
     }
 };
 
-pub fn String(options: StringOptions) type {
+pub fn String(comptime options: StringOptions) type {
     return struct {
         const Self = @This();
 
@@ -70,12 +70,11 @@ pub fn String(options: StringOptions) type {
                 }
             }
 
-            pub fn deinit(self: *Storage, allocator: std.mem.Allocator) void {
-                switch (self.*) {
+            pub fn deinit(self: Storage, allocator: std.mem.Allocator) void {
+                switch (self) {
                     .UTF_16LE, .UTF_16BE => |slice| allocator.free(slice),
                     .ISO_8859_1 => |bytes| allocator.free(bytes),
                 }
-                self.* = undefined;
             }
         };
 
@@ -161,9 +160,8 @@ pub fn String(options: StringOptions) type {
             }
         }
 
-        pub fn deinit(self: *Self) void {
+        pub fn deinit(self: Self) void {
             self.storage.deinit(self.allocator);
-            self.* = undefined;
         }
     };
 }

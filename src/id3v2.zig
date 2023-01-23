@@ -63,10 +63,10 @@ pub fn Parser(comptime ReaderType: type) type {
                 }
             }
 
-            pub fn deinit(self: *Result) void {
-                switch (self.*) {
-                    .v3 => |*result| result.deinit(),
-                    .v4 => |*result| result.deinit(),
+            pub fn deinit(self: Result) void {
+                switch (self) {
+                    .v3 => |result| result.deinit(),
+                    .v4 => |result| result.deinit(),
                 }
             }
         };

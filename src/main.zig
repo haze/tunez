@@ -37,7 +37,7 @@ pub const AudioInfo = struct {
         }
     }
 
-    pub fn deinit(self: *AudioInfo) void {
+    pub fn deinit(self: AudioInfo) void {
         if (self.maybe_track_title) |track_title|
             self.allocator.free(track_title);
         if (self.maybe_track_album) |track_album|
@@ -47,7 +47,6 @@ pub const AudioInfo = struct {
                 self.allocator.free(artist);
             self.allocator.free(track_artists);
         }
-        self.* = undefined;
     }
 };
 
@@ -87,7 +86,7 @@ pub fn resolveFlac(reader: anytype, allocator: std.mem.Allocator) !AudioInfo {
     }
 
     if (artists.items.len > 0) {
-        audio_info.maybe_track_artists = artists.toOwnedSlice();
+        audio_info.maybe_track_artists = try artists.toOwnedSlice();
     }
 
     return audio_info;
@@ -105,14 +104,14 @@ pub fn resolveId3(reader: anytype, allocator: std.mem.Allocator) !AudioInfo {
 
     var artists = std.ArrayList([]const u8).init(allocator);
 
-    while (try parser.nextItem()) |*result| {
+    while (try parser.nextItem()) |result| {
         defer result.deinit();
         std.log.warn("item = {}", .{result});
 
-        switch (result.*) {
-            .v3 => |*v3_result| {
-                switch (v3_result.*) {
-                    .frame => |*frame| switch (frame.*) {
+        switch (result) {
+            .v3 => |v3_result| {
+                switch (v3_result) {
+                    .frame => |frame| switch (frame) {
                         .TIT2 => |title_frame| {
                             var utf8_string = try title_frame.value.asUtf8(allocator);
                             defer utf8_string.deinit();
@@ -138,9 +137,9 @@ pub fn resolveId3(reader: anytype, allocator: std.mem.Allocator) !AudioInfo {
                     else => {},
                 }
             },
-            .v4 => |*v4_result| {
-                switch (v4_result.*) {
-                    .frame => |*frame| switch (frame.*) {
+            .v4 => |v4_result| {
+                switch (v4_result) {
+                    .frame => |frame| switch (frame) {
                         .TIT2 => |title_frame| {
                             var utf8_string = try title_frame.value.asUtf8(allocator);
                             defer utf8_string.deinit();
@@ -170,7 +169,7 @@ pub fn resolveId3(reader: anytype, allocator: std.mem.Allocator) !AudioInfo {
     }
 
     if (artists.items.len != 0) {
-        audio_info.maybe_track_artists = artists.toOwnedSlice();
+        audio_info.maybe_track_artists = try artists.toOwnedSlice();
     }
 
     return audio_info;
