@@ -235,7 +235,7 @@ pub const RawExtendedHeader = struct {
         extended_header.allocator = self.allocator;
         extended_header.flags = try self.allocator.alloc(ExtendedHeaderFlag, self.flags.len);
 
-        for (self.flags) |flag, index| {
+        for (self.flags, 0..) |flag, index| {
             log.warn("flag[{}] = {b}", .{ index, flag });
             var extended_header_flag: ExtendedHeaderFlag = undefined;
 

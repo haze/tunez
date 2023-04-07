@@ -28,7 +28,7 @@ pub const AudioInfo = struct {
         }
         if (self.maybe_track_artists) |artists| {
             try writer.writeAll(" by ");
-            for (artists) |artist, index| {
+            for (artists, 0..) |artist, index| {
                 try writer.writeAll(artist);
                 if (index != artists.len - 1) {
                     try writer.writeAll(", ");
