@@ -51,7 +51,7 @@ pub fn Parser(comptime ReaderType: type) type {
 }
 
 test {
-    const file_contents = @embedFile("/Users/haze/Music/Swinsian/Auto/HQ/[RS003] Ruthless Productions - The Latest Lick E.P. (1994) VINYL FLAC 16-44.1/X2 - Ruthless Productions - Love So Real.flac");
+    const file_contents = @embedFile("mario.flac");
     const reader = std.io.fixedBufferStream(file_contents).reader();
     var parser = Parser(@TypeOf(reader)){
         .allocator = std.testing.allocator,
