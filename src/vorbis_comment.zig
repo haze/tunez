@@ -5,9 +5,8 @@ pub const CommentHeader = struct {
     vendor_string: []const u8,
     user_comment_list_length: u32,
 
-    pub fn deinit(self: *CommentHeader, allocator: std.mem.Allocator) void {
+    pub fn deinit(self: CommentHeader, allocator: std.mem.Allocator) void {
         allocator.free(self.vendor_string);
-        self.* = undefined;
     }
 };
 
@@ -16,9 +15,8 @@ pub const Comment = struct {
     field_name: []const u8,
     field_value: []const u8,
 
-    pub fn deinit(self: *Comment, allocator: std.mem.Allocator) void {
+    pub fn deinit(self: Comment, allocator: std.mem.Allocator) void {
         allocator.free(self.field);
-        self.* = undefined;
     }
 };
 
@@ -59,31 +57,19 @@ pub fn Parser(comptime ReaderType: type, options: OggVorbisCommentParserOptions)
                 switch (self.state) {
                     .reading_header => {
                         var header: CommentHeader = undefined;
-                        header.vendor_length =
-                            switch (options.endian) {
-                            .Little => try self.reader.readIntLittle(u32),
-                            .Big => try self.reader.readIntBig(u32),
-                        };
+                        header.vendor_length = try self.reader.readInt(u32, options.endian);
 
                         const vendor_string = try self.allocator.alloc(u8, @as(usize, @intCast(header.vendor_length)));
                         _ = try self.reader.readAll(vendor_string);
                         header.vendor_string = vendor_string;
 
-                        header.user_comment_list_length =
-                            switch (options.endian) {
-                            .Little => try self.reader.readIntLittle(u32),
-                            .Big => try self.reader.readIntBig(u32),
-                        };
+                        header.user_comment_list_length = try self.reader.readInt(u32, options.endian);
                         self.state = .{ .reading_comment = header.user_comment_list_length };
                         return Result{ .header = header };
                     },
                     .reading_comment => |*comments_left| {
                         var comment: Comment = undefined;
-                        const comment_length =
-                            switch (options.endian) {
-                            .Little => try self.reader.readIntLittle(u32),
-                            .Big => try self.reader.readIntBig(u32),
-                        };
+                        const comment_length = try self.reader.readInt(u32, options.endian);
                         const field = try self.allocator.alloc(u8, comment_length);
                         _ = try self.reader.readAll(field);
                         comment.field = field;

@@ -34,24 +34,23 @@ pub const Header = struct {
 
 pub const Body = union(BlockKind) {
     stream_info: StreamInfo,
-    vorbis_comment: []vorbis_comment.Comment,
     padding: void,
     application: void,
     seek_table: void,
+    vorbis_comment: []vorbis_comment.Comment,
     cue_sheet: void,
     picture: void,
     invalid: void,
 
-    pub fn deinit(self: *Body, allocator: std.mem.Allocator) void {
-        switch (self.*) {
-            .vorbis_comment => |*comments| {
-                for (comments.*) |*comment|
+    pub fn deinit(self: Body, allocator: std.mem.Allocator) void {
+        switch (self) {
+            .vorbis_comment => |comments| {
+                for (comments) |comment|
                     comment.deinit(allocator);
-                allocator.free(comments.*);
+                allocator.free(comments);
             },
             else => {},
         }
-        self.* = undefined;
     }
 };
 
@@ -65,7 +64,7 @@ pub const MetadataBlock = struct {
         const header_and_block_kind = try reader.readByte();
         const is_last_block = (header_and_block_kind & (1 << 7)) != 0;
         const block_kind = std.meta.intToEnum(BlockKind, header_and_block_kind & 0b01111111) catch unreachable;
-        const block_length = try reader.readIntBig(u24);
+        const block_length = try reader.readInt(u24, .big);
         block.header = Header{
             .is_last_block = is_last_block,
             .block_kind = block_kind,
@@ -75,17 +74,17 @@ pub const MetadataBlock = struct {
         switch (block_kind) {
             .vorbis_comment => {
                 var comments = std.ArrayList(vorbis_comment.Comment).init(allocator);
-                var comment_parser = vorbis_comment.Parser(@TypeOf(reader), .{ .expect_framing_bit = false, .endian = .Little }){
+                var comment_parser = vorbis_comment.Parser(@TypeOf(reader), .{ .expect_framing_bit = false, .endian = .little }){
                     .allocator = allocator,
                     .reader = reader,
                 };
-                while (try comment_parser.nextItem()) |*result| {
-                    switch (result.*) {
-                        .header => |*header| header.deinit(allocator),
+                while (try comment_parser.nextItem()) |result| {
+                    switch (result) {
+                        .header => |header| header.deinit(allocator),
                         .comment => |comment| try comments.append(comment),
                     }
                 }
-                block.maybe_body = .{ .vorbis_comment = comments.toOwnedSlice() };
+                block.maybe_body = .{ .vorbis_comment = try comments.toOwnedSlice() };
             },
             else => {
                 _ = try reader.skipBytes(block_length, .{});
@@ -96,9 +95,8 @@ pub const MetadataBlock = struct {
         return block;
     }
 
-    pub fn deinit(self: *MetadataBlock, allocator: std.mem.Allocator) void {
-        if (self.maybe_body) |*body|
+    pub fn deinit(self: MetadataBlock, allocator: std.mem.Allocator) void {
+        if (self.maybe_body) |body|
             body.deinit(allocator);
-        self.* = undefined;
     }
 };

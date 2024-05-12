@@ -63,10 +63,10 @@ pub fn resolveFlac(reader: anytype, allocator: std.mem.Allocator) !AudioInfo {
 
     var artists = std.ArrayList([]const u8).init(allocator);
 
-    while (try parser.nextItem()) |*result| {
+    while (try parser.nextItem()) |result| {
         defer result.deinit(allocator);
         std.log.warn("item = {}", .{result});
-        switch (result.*) {
+        switch (result) {
             .metadata_block => |block| if (block.maybe_body) |body| {
                 switch (body) {
                     .vorbis_comment => |comments| {
@@ -87,7 +87,7 @@ pub fn resolveFlac(reader: anytype, allocator: std.mem.Allocator) !AudioInfo {
     }
 
     if (artists.items.len > 0) {
-        audio_info.maybe_track_artists = artists.toOwnedSlice();
+        audio_info.maybe_track_artists = try artists.toOwnedSlice();
     }
 
     return audio_info;
