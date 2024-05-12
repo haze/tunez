@@ -14,7 +14,7 @@ pub const TextEncodingDescriptionByte = enum(u8) {
     UTF_8 = 0x03,
 
     pub fn parse(reader: anytype) !TextEncodingDescriptionByte {
-        return @intToEnum(TextEncodingDescriptionByte, try reader.readByte());
+        return std.meta.intToEnum(TextEncodingDescriptionByte, try reader.readByte());
     }
 };
 
@@ -37,7 +37,7 @@ pub const Timestamp = struct {
         _ = fmt_options;
         try writer.print("{}", .{self.year});
         if (self.maybe_month) |month| {
-            try writer.print("-{}", .{@enumToInt(month)});
+            try writer.print("-{}", .{@intFromEnum(month)});
         }
         if (self.maybe_day) |day| {
             try writer.print("-{}", .{day});
@@ -103,8 +103,7 @@ pub const Timestamp = struct {
         var timestamp = Timestamp{
             .year = try std.fmt.parseInt(u16, year_str, 10),
         };
-        timestamp.maybe_month = @intToEnum(
-            Month,
+        timestamp.maybe_month = @enumFromInt(
             (try std.fmt.parseInt(
                 @typeInfo(Month).Enum.tag_type,
                 section_iter.next() orelse return timestamp,
@@ -131,7 +130,7 @@ pub const Timestamp = struct {
     }
 
     pub fn parseUtf8FromSlice(slice: []const u8) !Timestamp {
-        var reader = std.io.fixedBufferStream(slice).reader();
+        const reader = std.io.fixedBufferStream(slice).reader();
         return Timestamp.parseUtf8(reader, slice.len);
     }
 
@@ -240,7 +239,7 @@ pub fn String(comptime options: StringOptions) type {
                     };
                 },
                 .UTF_16 => |codepoints| {
-                    var bytes = try std.unicode.utf16leToUtf8Alloc(maybe_allocator orelse return error.MissingAllocator, codepoints);
+                    const bytes = try std.unicode.utf16leToUtf8Alloc(maybe_allocator orelse return error.MissingAllocator, codepoints);
                     return Utf8String{
                         .bytes = bytes,
                         .maybe_allocator = maybe_allocator,

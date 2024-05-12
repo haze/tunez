@@ -244,7 +244,7 @@ pub const RawExtendedHeader = struct {
             if (flag & HasCrcDataMask != 0) {
                 const crc_data_length = try reader.readByte();
                 log.warn("crc_len={}", .{crc_data_length});
-                var crc_data = try self.allocator.alloc(u8, crc_data_length);
+                const crc_data = try self.allocator.alloc(u8, crc_data_length);
                 _ = try reader.readAll(crc_data);
                 extended_header_flag.maybe_crc_data = crc_data;
             } else {
@@ -364,7 +364,7 @@ pub fn Parser(comptime ReaderType: type) type {
                 switch (self.state) {
                     .finished => unreachable,
                     .reading_frame_or_padding => |*payload| {
-                        var first_byte = try self.reader.readByte();
+                        const first_byte = try self.reader.readByte();
                         if (first_byte == 0x00 or payload.bytes_left == 0) {
                             self.state = .finished;
                             // try self.reader.skipBytes(payload.bytes_left - 1, .{});
@@ -424,7 +424,7 @@ pub fn Parser(comptime ReaderType: type) type {
                         const number_of_flag_bytes = try self.reader.readByte();
                         log.warn("size={}, num_flags={}", .{ extended_header_size, number_of_flag_bytes });
                         // TODO(haze): we could probably remove this
-                        var flag_bytes = try self.allocator.alloc(u8, number_of_flag_bytes);
+                        const flag_bytes = try self.allocator.alloc(u8, number_of_flag_bytes);
                         _ = try self.reader.readAll(flag_bytes);
                         var raw_extended_header = RawExtendedHeader{
                             .allocator = self.allocator,

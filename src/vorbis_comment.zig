@@ -65,7 +65,7 @@ pub fn Parser(comptime ReaderType: type, options: OggVorbisCommentParserOptions)
                             .Big => try self.reader.readIntBig(u32),
                         };
 
-                        var vendor_string = try self.allocator.alloc(u8, @intCast(usize, header.vendor_length));
+                        const vendor_string = try self.allocator.alloc(u8, @as(usize, @intCast(header.vendor_length)));
                         _ = try self.reader.readAll(vendor_string);
                         header.vendor_string = vendor_string;
 
@@ -84,7 +84,7 @@ pub fn Parser(comptime ReaderType: type, options: OggVorbisCommentParserOptions)
                             .Little => try self.reader.readIntLittle(u32),
                             .Big => try self.reader.readIntBig(u32),
                         };
-                        var field = try self.allocator.alloc(u8, comment_length);
+                        const field = try self.allocator.alloc(u8, comment_length);
                         _ = try self.reader.readAll(field);
                         comment.field = field;
                         const field_sep_index = std.mem.indexOfScalar(u8, comment.field, '=') orelse return error.InvalidComment;

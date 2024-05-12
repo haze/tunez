@@ -8,7 +8,7 @@ pub const TextEncodingDescriptionByte = enum(u8) {
     UTF_16 = 0x01,
 
     pub fn parse(reader: anytype) !TextEncodingDescriptionByte {
-        return @intToEnum(TextEncodingDescriptionByte, try reader.readByte());
+        return try std.meta.intToEnum(TextEncodingDescriptionByte, try reader.readByte());
     }
 };
 
@@ -148,7 +148,7 @@ pub fn String(options: StringOptions) type {
                     .bytes = bytes,
                 },
                 .UTF_16LE => |utf16_codepoints| {
-                    var bytes = try std.unicode.utf16leToUtf8Alloc(allocator, utf16_codepoints);
+                    const bytes = try std.unicode.utf16leToUtf8Alloc(allocator, utf16_codepoints);
                     return Utf8String{
                         .bytes = bytes,
                         .maybe_allocator = allocator,

@@ -145,7 +145,7 @@ pub fn Parser(comptime ReaderType: type) type {
                 switch (self.state) {
                     .finished => unreachable,
                     .reading_frame_or_padding => |*payload| {
-                        var first_byte = try self.reader.readByte();
+                        const first_byte = try self.reader.readByte();
                         if (first_byte == 0x00 or payload.bytes_left == 0) {
                             self.state = .finished;
                             // try self.reader.skipBytes(payload.bytes_left - 1, .{});

@@ -62,9 +62,9 @@ pub const MetadataBlock = struct {
     pub fn parse(reader: anytype, allocator: std.mem.Allocator) !MetadataBlock {
         var block: MetadataBlock = undefined;
 
-        var header_and_block_kind = try reader.readByte();
+        const header_and_block_kind = try reader.readByte();
         const is_last_block = (header_and_block_kind & (1 << 7)) != 0;
-        const block_kind = @intToEnum(BlockKind, header_and_block_kind & 0b01111111);
+        const block_kind = std.meta.intToEnum(BlockKind, header_and_block_kind & 0b01111111) catch unreachable;
         const block_length = try reader.readIntBig(u24);
         block.header = Header{
             .is_last_block = is_last_block,
