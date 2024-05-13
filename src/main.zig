@@ -110,7 +110,7 @@ pub fn resolveId3(reader: anytype, allocator: std.mem.Allocator) !AudioInfo {
         defer result.deinit();
         std.log.warn("item = {}", .{result});
 
-        switch (result.*) {
+        switch (result) {
             .v3 => |*v3_result| {
                 switch (v3_result.*) {
                     .frame => |*frame| switch (frame.*) {
