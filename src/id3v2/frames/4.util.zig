@@ -130,7 +130,8 @@ pub const Timestamp = struct {
     }
 
     pub fn parseUtf8FromSlice(slice: []const u8) !Timestamp {
-        const reader = std.io.fixedBufferStream(slice).reader();
+        var fbs = std.io.fixedBufferStream(slice);
+        const reader = fbs.reader();
         return Timestamp.parseUtf8(reader, slice.len);
     }
 

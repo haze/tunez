@@ -105,7 +105,8 @@ pub fn resolveId3(reader: anytype, allocator: std.mem.Allocator) !AudioInfo {
 
     var artists = std.ArrayList([]const u8).init(allocator);
 
-    while (try parser.nextItem()) |*result| {
+    while (try parser.nextItem()) |result_value| {
+        var result = result_value;
         defer result.deinit();
         std.log.warn("item = {}", .{result});
 
@@ -170,7 +171,7 @@ pub fn resolveId3(reader: anytype, allocator: std.mem.Allocator) !AudioInfo {
     }
 
     if (artists.items.len != 0) {
-        audio_info.maybe_track_artists = artists.toOwnedSlice();
+        audio_info.maybe_track_artists = try artists.toOwnedSlice();
     }
 
     return audio_info;

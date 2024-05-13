@@ -74,10 +74,12 @@ pub const TXXX = struct {
 
         _ = try reader.readAll(bytes);
         if (std.mem.indexOfScalar(u8, bytes, 0x00)) |separation_index| {
-            const description_reader = std.io.fixedBufferStream(bytes[0..separation_index]).reader();
+            var fbs = std.io.fixedBufferStream(bytes[0..separation_index]);
+            const description_reader = fbs.reader();
             const description = try String.Storage.parse(description_reader, payload.allocator, text_encoding_description_byte, separation_index, maybe_utf16_byte_order);
 
-            const value_reader = std.io.fixedBufferStream(bytes[separation_index + 1 ..]).reader();
+            var value_fbs = std.io.fixedBufferStream(bytes[separation_index + 1 ..]);
+            const value_reader = value_fbs.reader();
             const value = try String.Storage.parse(value_reader, payload.allocator, text_encoding_description_byte, separation_index, maybe_utf16_byte_order);
 
             return TXXX{
