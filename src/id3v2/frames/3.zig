@@ -157,8 +157,8 @@ pub fn Parser(comptime ReaderType: type) type {
                             var frame_id: [4]u8 = undefined;
                             frame_id[0] = first_byte;
                             _ = try self.reader.readAll(frame_id[1..]);
-                            const frame_size = try self.reader.readIntBig(u32);
-                            const flags = try self.reader.readIntBig(u16);
+                            const frame_size = try self.reader.readInt(u32, .big);
+                            const flags = try self.reader.readInt(u16, .big);
 
                             inline for (@typeInfo(Frame).Union.fields) |field| {
                                 if (std.mem.eql(u8, field.name, &frame_id)) {
@@ -190,7 +190,7 @@ pub fn Parser(comptime ReaderType: type) type {
                     },
                     .reading_header => {
                         const flags = try self.reader.readByte();
-                        const source_tag_size = try self.reader.readIntBig(u32);
+                        const source_tag_size = try self.reader.readInt(u32, .big);
 
                         var tag_size: u32 = 0;
                         comptime var mask: u32 = 0x7F000000;

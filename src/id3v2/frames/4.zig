@@ -376,7 +376,7 @@ pub fn Parser(comptime ReaderType: type) type {
                             var frame_id: [4]u8 = undefined;
                             frame_id[0] = first_byte;
                             _ = try self.reader.readAll(frame_id[1..]);
-                            const source_frame_size = try self.reader.readIntBig(u32);
+                            const source_frame_size = try self.reader.readInt(u32, .big);
 
                             var frame_size: u32 = 0;
                             comptime var mask: u32 = 0x7F000000;
@@ -386,7 +386,7 @@ pub fn Parser(comptime ReaderType: type) type {
                                 mask >>= 8;
                             }) {}
 
-                            const flags = try self.reader.readIntBig(u16);
+                            const flags = try self.reader.readInt(u16, .big);
 
                             inline for (@typeInfo(Frame).Union.fields) |field| {
                                 if (std.mem.eql(u8, field.name, &frame_id)) {
@@ -420,7 +420,7 @@ pub fn Parser(comptime ReaderType: type) type {
                     // 0b00100000
                     // 0b0bcd0000
                     .reading_extended_header => |payload| {
-                        const extended_header_size = try self.reader.readIntBig(u32);
+                        const extended_header_size = try self.reader.readInt(u32, .big);
                         const number_of_flag_bytes = try self.reader.readByte();
                         log.warn("size={}, num_flags={}", .{ extended_header_size, number_of_flag_bytes });
                         // TODO(haze): we could probably remove this
@@ -437,7 +437,7 @@ pub fn Parser(comptime ReaderType: type) type {
                     },
                     .reading_header => {
                         const flags = try self.reader.readByte();
-                        const source_tag_size = try self.reader.readIntBig(u32);
+                        const source_tag_size = try self.reader.readInt(u32, .big);
 
                         var tag_size: u32 = 0;
                         comptime var mask: u32 = 0x7F000000;

@@ -174,11 +174,11 @@ pub fn String(comptime options: StringOptions) type {
                         var read_index: usize = 0;
                         if (byte_order == .Big) {
                             while (read_index < slice.len) : (read_index += 1) {
-                                slice[read_index] = try reader.readIntBig(u16);
+                                slice[read_index] = try reader.readInt(u16, .big);
                             }
                         } else {
                             while (read_index < slice.len) : (read_index += 1) {
-                                slice[read_index] = try reader.readIntLittle(u16);
+                                slice[read_index] = try reader.readInt(u16, .little);
                             }
                         }
                         return Storage{ .UTF_16 = slice };

@@ -172,11 +172,11 @@ pub const APIC = struct {
                     var codepoint_storage = std.ArrayList(u16).init(payload.allocator);
                     defer codepoint_storage.deinit();
 
-                    var working_codepoint = try reader.readIntLittle(u16);
+                    var working_codepoint = try reader.readInt(u16, .little);
 
                     while (working_codepoint != 0x00) {
                         try codepoint_storage.append(working_codepoint);
-                        working_codepoint = try reader.readIntLittle(u16);
+                        working_codepoint = try reader.readInt(u16, .little);
                     }
 
                     const utf8_desc = try std.unicode.utf16leToUtf8Alloc(payload.allocator, codepoint_storage.items);

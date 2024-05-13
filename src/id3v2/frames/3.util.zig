@@ -55,13 +55,13 @@ pub fn String(options: StringOptions) type {
                         switch (maybe_utf16_byte_order.?) {
                             .Little => {
                                 while (read_index < slice.len) : (read_index += 1) {
-                                    slice[read_index] = try reader.readIntLittle(u16);
+                                    slice[read_index] = try reader.readInt(u16, .little);
                                 }
                                 return Storage{ .UTF_16LE = slice };
                             },
                             .Big => {
                                 while (read_index < slice.len) : (read_index += 1) {
-                                    slice[read_index] = try reader.readIntBig(u16);
+                                    slice[read_index] = try reader.readInt(u16, .big);
                                 }
                                 return Storage{ .UTF_16BE = slice };
                             },
