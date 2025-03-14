@@ -181,7 +181,7 @@ pub const APIC = struct {
                         working_codepoint = try reader.readInt(u16, .little);
                     }
 
-                    const utf8_desc = try std.unicode.utf16leToUtf8Alloc(payload.allocator, codepoint_storage.items);
+                    const utf8_desc = try std.unicode.utf16LeToUtf8Alloc(payload.allocator, codepoint_storage.items);
                     break :blk utf8_desc;
                 },
             }
