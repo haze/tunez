@@ -105,7 +105,7 @@ pub const Timestamp = struct {
         };
         timestamp.maybe_month = @enumFromInt(
             (try std.fmt.parseInt(
-                @typeInfo(Month).Enum.tag_type,
+                @typeInfo(Month).@"enum".tag_type,
                 section_iter.next() orelse return timestamp,
                 10,
             )) - 1,
@@ -258,9 +258,9 @@ pub fn String(comptime options: StringOptions) type {
         pub fn parse(reader: anytype, payload: StringParsePayload) !Self {
             const text_encoding =
                 if (payload.maybe_known_encoding) |known_encoding|
-                known_encoding
-            else
-                try TextEncodingDescriptionByte.parse(reader);
+                    known_encoding
+                else
+                    try TextEncodingDescriptionByte.parse(reader);
             const storage = try Storage.parse(reader, payload.allocator, text_encoding, payload.bytes_left);
 
             return Self{

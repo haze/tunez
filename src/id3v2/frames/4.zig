@@ -388,7 +388,7 @@ pub fn Parser(comptime ReaderType: type) type {
 
                             const flags = try self.reader.readInt(u16, .big);
 
-                            inline for (@typeInfo(Frame).Union.fields) |field| {
+                            inline for (@typeInfo(Frame).@"union".fields) |field| {
                                 if (std.mem.eql(u8, field.name, &frame_id)) {
                                     payload.bytes_left -= (frame_size + 10);
                                     return Result{
