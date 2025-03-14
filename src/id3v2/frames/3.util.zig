@@ -148,7 +148,7 @@ pub fn String(options: StringOptions) type {
                     .bytes = bytes,
                 },
                 .UTF_16LE => |utf16_codepoints| {
-                    const bytes = try std.unicode.utf16leToUtf8Alloc(allocator, utf16_codepoints);
+                    const bytes = try std.unicode.utf16LeToUtf8Alloc(allocator, utf16_codepoints);
                     return Utf8String{
                         .bytes = bytes,
                         .maybe_allocator = allocator,

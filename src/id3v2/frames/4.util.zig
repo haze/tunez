@@ -240,7 +240,7 @@ pub fn String(comptime options: StringOptions) type {
                     };
                 },
                 .UTF_16 => |codepoints| {
-                    const bytes = try std.unicode.utf16leToUtf8Alloc(maybe_allocator orelse return error.MissingAllocator, codepoints);
+                    const bytes = try std.unicode.utf16LeToUtf8Alloc(maybe_allocator orelse return error.MissingAllocator, codepoints);
                     return Utf8String{
                         .bytes = bytes,
                         .maybe_allocator = maybe_allocator,
