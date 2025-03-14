@@ -98,7 +98,7 @@ pub const Timestamp = struct {
         var timestamp_buf: [LongestPossibleTimestamp.len]u8 = undefined;
         const bytes_read = try reader.readAll(timestamp_buf[0..bytes_left]);
 
-        var section_iter = std.mem.tokenize(u8, std.mem.trimRight(u8, timestamp_buf[0..bytes_read], "\x00"), "-");
+        var section_iter = std.mem.tokenizeSequence(u8, std.mem.trimRight(u8, timestamp_buf[0..bytes_read], "\x00"), "-");
         const year_str = section_iter.next() orelse return error.InvalidTimestampMissingYear;
         var timestamp = Timestamp{
             .year = try std.fmt.parseInt(u16, year_str, 10),
@@ -116,7 +116,7 @@ pub const Timestamp = struct {
             const day_time_sep = std.mem.indexOfScalar(u8, day_and_time, 'T') orelse std.mem.indexOfScalar(u8, day_and_time, ' ') orelse return error.InvalidTimestampMissingHourForDay;
             timestamp.maybe_day = try std.fmt.parseInt(u5, day_and_time[0..day_time_sep], 10);
             const time = day_and_time[day_time_sep + 1 ..];
-            var time_section_iter = std.mem.tokenize(u8, time, ":");
+            var time_section_iter = std.mem.tokenizeSequence(u8, time, ":");
             timestamp.maybe_hour = try std.fmt.parseInt(u5, time_section_iter.next() orelse return error.InvalidTimestampMissingHours, 10);
             if (time_section_iter.next()) |minutes| {
                 timestamp.maybe_minutes = try std.fmt.parseInt(u6, minutes, 10);
