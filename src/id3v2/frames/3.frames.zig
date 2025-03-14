@@ -35,12 +35,12 @@ pub const TXXX = struct {
                     .Little => {
                         var desc_utf8_buf: [256]u8 = undefined;
                         var value_utf8_buf: [256]u8 = undefined;
-                        const desc_utf8_buf_end = std.unicode.utf16leToUtf8(
+                        const desc_utf8_buf_end = std.unicode.utf16LeToUtf8(
                             &desc_utf8_buf,
                             self.description.UTF_16LE,
                         ) catch |err|
                             return writer.print("{}", .{err});
-                        const value_utf8_buf_end = std.unicode.utf16leToUtf8(
+                        const value_utf8_buf_end = std.unicode.utf16LeToUtf8(
                             &value_utf8_buf,
                             self.value.UTF_16LE,
                         ) catch |err|
